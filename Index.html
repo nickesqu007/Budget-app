@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>My Budget v1.1</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="theme-color" content="#0b0e13" />
+<link rel="icon" href="./icon-192.png" sizes="192x192">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<style>
+  :root{
+    --bg:#0b0e13; --card:#121722; --muted:#8fa1b3; --text:#e6edf3;
+    --accent:#4aa3ff; --accent-2:#6fe3b7; --danger:#ff6b6b; --ok:#58d68d;
+    --border:#1f2633; --shadow:0 8px 24px rgba(0,0,0,.3); --radius:16px;
+  }
+  *{box-sizing:border-box} html,body{height:100%}
+  body{margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+    background: radial-gradient(1200px 600px at 20% -10%, #132033 0%, #0b0e13 50%) no-repeat, var(--bg); color:var(--text);}
+  .wrap{max-width:1200px; margin:0 auto; padding:18px}
+  header.summary{position:sticky; top:0; z-index:3; background:linear-gradient(180deg, rgba(11,14,19,.95), rgba(11,14,19,.8));
+    backdrop-filter: blur(6px); padding:16px; border-bottom:1px solid var(--border)}
+  .flex{display:flex; gap:12px; flex-wrap:wrap; align-items:center}
+  .pill{padding:8px 12px; border:1px solid var(--border); border-radius:999px; background:#0f1420; box-shadow:var(--shadow);
+    display:flex; gap:8px; align-items:center; white-space:nowrap}
+  .pill strong{font-variant-numeric: tabular-nums}
+  .net{background: linear-gradient(90deg, rgba(74,163,255,.15), rgba(111,227,183,.15)); border-color:#233044}
+  .grid{display:grid; gap:16px; margin-top:16px; grid-template-columns:1.1fr 1.1fr .9fr}
+  @media (max-width: 1020px){ .grid{grid-template-columns:1fr} }
+  .card{background:linear-gradient(180deg, #0f1522, #0c1018); border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow)}
+  .card h2{margin:0; padding:14px; border-bottom:1px solid var(--border); font-size:1.05rem; color:#cfe1ff}
+  .section-body{padding:14px}
+  fieldset{border:1px dashed #273046; padding:12px; border-radius:12px; margin:0 0 12px}
+  legend{color:var(--muted); padding:0 8px; font-size:.9rem}
+  label{display:block; font-size:.9rem; color:#bcd; margin-bottom:6px}
+  input, select, button, textarea{width:100%; padding:9px 10px; border-radius:10px; border:1px solid #273046; background:#0a0f17; color:var(--text); font-size:.95rem}
+  input[type="number"]{font-variant-numeric: tabular-nums}
+  textarea{min-height:64px; resize:vertical}
+  .row{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+  .row-3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px}
+  .actions{display:flex; gap:10px; margin-top:8px}
+  .btn{cursor:pointer} .btn-ghost{background:#0a0f17; border:1px solid #273046}
+  .btn-primary{background:linear-gradient(90deg, #2a86f3, #1ec9a5); border:none}
+  .btn-danger{background:#2a1010; border:1px solid #512020; color:#ffd5d5}
+  .badges{display:flex; gap:8px; flex-wrap:wrap}
+  .badge{background:#0a0f17; border:1px solid #273046; border-radius:999px; padding:6px 10px; font-variant-numeric: tabular-nums; color:#cfe1ff}
+  table{width:100%; border-collapse:collapse; border:1px solid var(--border); border-radius:10px; overflow:hidden}
+  thead th{background:#0a0f17; color:#a8bdd6; text-align:left; font-weight:600; padding:8px; border-bottom:1px solid var(--border)}
+  tbody td{padding:8px; border-bottom:1px solid #1a2030; vertical-align:top}
+  tbody tr:hover{background:#111722}
+  .right{text-align:right} .muted{color:var(--muted); font-size:.9rem}
+  .error{color:#ff9c9c; font-size:.85rem; margin-top:6px; display:none}
+  .toast{position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+    background:#101726; color:#def; border:1px solid #273046; border-radius:12px; padding:10px 14px; box-shadow:var(--shadow);
+    z-index:10; opacity:0; pointer-events:none; transition:opacity .2s ease, transform .2s ease}
+  .toast.show{opacity:1; pointer-events:auto; transform:translateX(-50%) translateY(-6px)}
+  .mini-help{font-size:.85rem; color:#9fb2cc; margin-top:8px}
+  .filters{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+  .filters select, .filters input[type="date"]{width:auto}
+  .upcoming-list{max-height:160px; overflow:auto; border:1px dashed #273046; border-radius:10px; padding:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="summary">
+    <div class="flex">
+      <div class="filters">
+        <label for="filterRange" class="muted">View:</label>
+        <select id="filterRange">
+          <option value="all">All</option>
+          <option value="thisWeek">This Week</option>
+          <option value="lastWeek">Last Week</option>
+          <option value="payPeriod">Current Pay Period</option>
+          <option value="custom">Custom Range</option>
+        </select>
+        <input id="customStart" type="date" style="display:none">
+        <span id="toSpan" class="muted" style="display:none">to</span>
+        <input id="customEnd" type="date" style="display:none">
+        <span class="muted">· Pay schedule:</span>
+        <select id="payFreq">
+          <option value="biweekly">Biweekly</option>
+          <option value="weekly">Weekly</option>
+          <option value="semimonthly">Semi-monthly (1st & 15th)</option>
+          <option value="monthly">Monthly</option>
+        </select>
+        <label class="muted">Seed payday:</label>
+        <input id="seedPayday" type="date">
+      </div>
+      <div class="badges">
+        <div class="pill"><span class="muted">Income:</span>&nbsp;<strong id="sumIncome">$0.00</strong></div>
+        <div class="pill"><span class="muted">Expenses:</span>&nbsp;<strong id="sumExpenses">$0.00</strong></div>
+        <div class="pill net"><span>Net:</span>&nbsp;<strong id="sumNet">$0.00</strong></div>
+        <div class="pill"><span class="muted">Projected to Payday:</span>&nbsp;<strong id="projectedToPayday">$0.00</strong></div>
+      </div>
+      <div class="actions">
+        <button id="exportBtn" class="btn btn-ghost">Export JSON</button>
+        <label for="importFile" class="btn btn-ghost" style="display:inline-flex; align-items:center; gap:8px; cursor:pointer">
+          Import JSON <input id="importFile" type="file" accept="application/json" style="display:none" />
+        </label>
+        <button id="resetBtn" class="btn btn-danger">⚠ Reset Data</button>
+      </div>
+    </div>
+  </header>
+
+  <section class="card" style="margin-top:12px">
+    <h2>Upcoming (next 7 days)</h2>
+    <div class="section-body">
+      <div class="badges" style="margin-bottom:8px">
+        <div class="badge">Bills: <strong id="upBills">$0.00</strong></div>
+        <div class="badge">Income: <strong id="upIncome">$0.00</strong></div>
+        <div class="badge">Net effect: <strong id="upNet">$0.00</strong></div>
+        <div class="badge">Next payday: <strong id="nextPaydayLabel">—</strong></div>
+      </div>
+      <div class="upcoming-list" id="upcomingList" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <div class="grid">
+    <section class="card" aria-labelledby="incomeHeading">
+      <h2 id="incomeHeading">Income</h2>
+      <div class="section-body">
+        <form id="incomeForm" novalidate>
+          <fieldset>
+            <legend>Add / Edit Income</legend>
+            <div class="row">
+              <div>
+                <label for="incomeDate">Date</label>
+                <input id="incomeDate" name="date" type="date" required />
+                <div style="display:flex; gap:6px; align-items:center; margin-top:6px">
+                  <input id="incomeScheduled" type="checkbox" />
+                  <label for="incomeScheduled" class="muted">Scheduled (future)</label>
+                </div>
+              </div>
+              <div>
+                <label for="incomeSource">Source</label>
+                <input id="incomeSource" name="source" type="text" placeholder="Paycheck, Refund…" required />
+              </div>
+            </div>
+            <div class="row">
+              <div>
+                <label for="incomeAmount">Amount</label>
+                <input id="incomeAmount" name="amount" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0.00" required />
+                <div id="incomeAmountErr" class="error">Enter a valid non-negative amount.</div>
+              </div>
+              <div>
+                <label>&nbsp;</label>
+                <div class="actions">
+                  <button class="btn btn-primary" id="incomeSubmitBtn" type="submit">Add Income</button>
+                  <button class="btn btn-ghost" id="incomeCancelEdit" type="button" style="display:none">Cancel Edit</button>
+                </div>
+              </div>
+            </div>
+          </fieldset>
+        </form>
+
+        <div style="overflow:auto">
+          <table aria-describedby="incomeHeading">
+            <thead><tr><th>Date</th><th>Source</th><th>Scheduled</th><th class="right">Amount</th><th class="right">Actions</th></tr></thead>
+            <tbody id="incomeTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="expenseHeading">
+      <h2 id="expenseHeading">Expenses</h2>
+      <div class="section-body">
+        <form id="expenseForm" novalidate>
+          <fieldset>
+            <legend>Add / Edit Expense</legend>
+            <div class="row-3">
+              <div>
+                <label for="expenseDate">Date</label>
+                <input id="expenseDate" name="date" type="date" required />
+                <div style="display:flex; gap:6px; align-items:center; margin-top:6px">
+                  <input id="expenseScheduled" type="checkbox" />
+                  <label for="expenseScheduled" class="muted">Scheduled (future)</label>
+                </div>
+              </div>
+              <div>
+                <label for="expenseCategory">Category</label>
+                <select id="expenseCategory" name="category">
+                  <option value="Housing">Housing</option>
+                  <option value="Utilities">Utilities</option>
+                  <option value="Food">Food</option>
+                  <option value="Transport">Transport</option>
+                  <option value="Debt">Debt</option>
+                  <option value="Health">Health</option>
+                  <option value="Entertainment">Entertainment</option>
+                  <option value="Savings">Savings</option>
+                  <option value="Other">Other</option>
+                </select>
+                <div class="mini-help">Or type a custom category:</div>
+                <input id="expenseCategoryCustom" type="text" placeholder="Custom category (optional)" />
+              </div>
+              <div>
+                <label for="expenseAmount">Amount</label>
+                <input id="expenseAmount" name="amount" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0.00" required />
+                <div id="expenseAmountErr" class="error">Enter a valid non-negative amount.</div>
+              </div>
+            </div>
+            <div class="row">
+              <div>
+                <label for="expenseNotes">Notes (optional)</label>
+                <textarea id="expenseNotes" name="notes" placeholder="Short note…"></textarea>
+              </div>
+              <div>
+                <label>&nbsp;</label>
+                <div class="actions">
+                  <button class="btn btn-primary" id="expenseSubmitBtn" type="submit">Add Expense</button>
+                  <button class="btn btn-ghost" id="expenseCancelEdit" type="button" style="display:none">Cancel Edit</button>
+                </div>
+              </div>
+            </div>
+          </fieldset>
+        </form>
+
+        <div style="overflow:auto">
+          <table aria-describedby="expenseHeading">
+            <thead><tr><th>Date</th><th>Category</th><th>Scheduled</th><th class="right">Amount</th><th>Notes</th><th class="right">Actions</th></tr></thead>
+            <tbody id="expenseTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <aside class="card" aria-labelledby="toolsHeading">
+      <h2 id="toolsHeading">What-If & Calculator</h2>
+      <div class="section-body">
+        <div>
+          <label for="whatIfNumber">What-If amount</label>
+          <input id="whatIfNumber" type="number" min="0" step="1" inputmode="decimal" />
+        </div>
+        <div class="mini-help">Projected Balance (Net − What-If): <strong id="projectedBalance">$0.00</strong></div>
+        <hr style="border:none; border-top:1px solid var(--border); margin:12px 0" />
+        <div>
+          <label for="calcAmount">Quick Calculator: Planned purchase</label>
+          <input id="calcAmount" type="number" min="0" step="1" inputmode="decimal" placeholder="e.g., 250" />
+        </div>
+        <div class="mini-help">New Balance (Net − Planned): <strong id="calcResult">$0.00</strong></div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(console.error);
+  });
+}
+
+const LS_KEY='simple_budget_v11';
+const fmt=new Intl.NumberFormat(undefined,{style:'currency',currency:getLikelyCurrency(),minimumFractionDigits:2,maximumFractionDigits:2});
+function getLikelyCurrency(){try{new Intl.NumberFormat(undefined,{style:'currency',currency:'USD'}).formatToParts(1);return(Intl.NumberFormat().resolvedOptions().currency||'USD')}catch{return'USD'}}
+function formatCurrency(n){return fmt.format(Number(n||0))}
+function parseAmount(v){if(typeof v==='number')return v;if(!v)return NaN;v=String(v).replace(/[^0-9,.\-]/g,'').replace(',', '.');const num=Number(v);return Number.isFinite(num)?num:NaN}
+function uid(){return Math.random().toString(36).slice(2)+Date.now().toString(36)}
+function todayStr(){return new Date().toISOString().slice(0,10)}
+function toISO(d){return new Date(d).toISOString().slice(0,10)}
+function startOfWeek(d){const dt=new Date(d);const dow=(dt.getDay()+6)%7;dt.setDate(dt.getDate()-dow);dt.setHours(0,0,0,0);return dt}
+function endOfWeek(d){const s=startOfWeek(d);const e=new Date(s);e.setDate(s.getDate()+6);e.setHours(23,59,59,999);return e}
+function addDays(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x}
+function isFuture(iso){const d=new Date(iso);const t=new Date();t.setHours(0,0,0,0);return d>t}
+function inRange(iso,start,end){try{const d=new Date(iso);return d>=start && d<=end}catch{return false}}
+function escapeHtml(s){return String(s).replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]))}
+
+let state = loadState();
+if (!state.settings) state.settings = { payFreq:'biweekly', seedPayday: toISO(addDays(new Date(), 14)) };
+saveState();
+
+const dom = {
+  filterRange: byId('filterRange'), customStart: byId('customStart'), customEnd: byId('customEnd'), toSpan: byId('toSpan'),
+  payFreq: byId('payFreq'), seedPayday: byId('seedPayday'),
+  sumIncome: byId('sumIncome'), sumExpenses: byId('sumExpenses'), sumNet: byId('sumNet'),
+  projectedToPayday: byId('projectedToPayday'), nextPaydayLabel: byId('nextPaydayLabel'),
+  upBills: byId('upBills'), upIncome: byId('upIncome'), upNet: byId('upNet'), upcomingList: byId('upcomingList'),
+  incomeForm: byId('incomeForm'), incomeDate: byId('incomeDate'), incomeSource: byId('incomeSource'), incomeAmount: byId('incomeAmount'), incomeAmountErr: byId('incomeAmountErr'), incomeScheduled: byId('incomeScheduled'), incomeSubmitBtn: byId('incomeSubmitBtn'), incomeCancelEdit: byId('incomeCancelEdit'),
+  expenseForm: byId('expenseForm'), expenseDate: byId('expenseDate'), expenseCategory: byId('expenseCategory'), expenseCategoryCustom: byId('expenseCategoryCustom'), expenseAmount: byId('expenseAmount'), expenseAmountErr: byId('expenseAmountErr'), expenseNotes: byId('expenseNotes'), expenseScheduled: byId('expenseScheduled'), expenseSubmitBtn: byId('expenseSubmitBtn'), expenseCancelEdit: byId('expenseCancelEdit'),
+  incomeTbody: byId('incomeTbody'), expenseTbody: byId('expenseTbody'),
+  exportBtn: byId('exportBtn'), importFile: byId('importFile'), resetBtn: byId('resetBtn'),
+  whatIfNumber: byId('whatIfNumber'), projectedBalance: byId('projectedBalance'), calcAmount: byId('calcAmount'), calcResult: byId('calcResult')
+};
+function byId(id){return document.getElementById(id)}
+
+function loadState(){try{const raw=localStorage.getItem(LS_KEY); if(!raw) return seed(); const obj=JSON.parse(raw); return obj;}catch{return seed()}}
+function saveState(){localStorage.setItem(LS_KEY, JSON.stringify(state))}
+function seed(){
+  const s = { version:'1.1', settings:{payFreq:'biweekly', seedPayday: toISO(addDays(new Date(), 14))}, incomes:[], expenses:[] };
+  // tiny seed
+  s.incomes.push({id:uid(), date:toISO(addDays(new Date(), -10)), source:'Paycheck', amount:3200, scheduled:false});
+  s.incomes.push({id:uid(), date:toISO(addDays(new Date(), -3)), source:'Freelance', amount:450, scheduled:false});
+  s.expenses.push({id:uid(), date:toISO(addDays(new Date(), -9)), category:'Housing', amount:1200, notes:'Rent', scheduled:false});
+  s.expenses.push({id:uid(), date:toISO(addDays(new Date(), -2)), category:'Food', amount:245.37, notes:'Groceries', scheduled:false});
+  return s;
+}
+
+// ---- Pay period helpers ----
+function nextPaydayFromSettings(){
+  const freq = state.settings.payFreq||'biweekly';
+  const seed = new Date(state.settings.seedPayday||todayStr());
+  const today = new Date(); today.setHours(0,0,0,0);
+  let next = new Date(seed);
+  function advance(n){ next.setDate(next.getDate()+n); }
+  if (freq==='weekly'){
+    while (next <= today) advance(7);
+  } else if (freq==='biweekly'){
+    while (next <= today) advance(14);
+  } else if (freq==='semimonthly'){
+    // 1st and 15th
+    const y = today.getFullYear(), m = today.getMonth();
+    const candidates = [new Date(y,m,1), new Date(y,m,15), new Date(y,m+1,1), new Date(y,m+1,15)];
+    next = candidates.find(d=>d>=today) || candidates[candidates.length-1];
+  } else if (freq==='monthly'){
+    const day = new Date(state.settings.seedPayday||todayStr()).getDate();
+    next = new Date(today.getFullYear(), today.getMonth(), day);
+    if (next <= today) next = new Date(today.getFullYear(), today.getMonth()+1, day);
+  }
+  next.setHours(0,0,0,0);
+  return next;
+}
+function currentPayPeriodRange(){
+  const freq = state.settings.payFreq||'biweekly';
+  const next = nextPaydayFromSettings();
+  const end = new Date(next); end.setHours(23,59,59,999);
+  const start = new Date(next);
+  if (freq==='weekly') start.setDate(start.getDate()-7);
+  else if (freq==='biweekly') start.setDate(start.getDate()-14);
+  else if (freq==='semimonthly'){
+    // start is previous 1st or 15th
+    const d = new Date(); const y=d.getFullYear(), m=d.getMonth(), day=d.getDate();
+    if (day <= 15) start.setFullYear(y, m-1, 15); else start.setFullYear(y, m, 1);
+  } else if (freq==='monthly'){
+    start.setMonth(start.getMonth()-1);
+  }
+  start.setHours(0,0,0,0);
+  return {start, end};
+}
+
+// ---- Filtering ----
+function getActiveRange(){
+  const now = new Date();
+  const sel = dom.filterRange.value;
+  if (sel==='thisWeek'){ return {start: startOfWeek(now), end: endOfWeek(now)}; }
+  if (sel==='lastWeek'){ const s = addDays(startOfWeek(now), -7); return {start: s, end: addDays(endOfWeek(now), -7)}; }
+  if (sel==='payPeriod'){ return currentPayPeriodRange(); }
+  if (sel==='custom'){
+    const s = dom.customStart.value ? new Date(dom.customStart.value) : new Date('1970-01-01');
+    const e = dom.customEnd.value ? new Date(dom.customEnd.value) : new Date('2999-12-31');
+    e.setHours(23,59,59,999);
+    return {start:s, end:e};
+  }
+  // all
+  return {start: new Date('1970-01-01'), end: new Date('2999-12-31')};
+}
+
+// ---- Calculations ----
+function totalsForRange(range){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const inc = state.incomes.filter(x=>inRange(x.date, range.start, range.end) && !(x.scheduled && isFuture(x.date)))
+                           .reduce((s,x)=>s+Number(x.amount||0),0);
+  const exp = state.expenses.filter(x=>inRange(x.date, range.start, range.end) && !(x.scheduled && isFuture(x.date)))
+                            .reduce((s,x)=>s+Number(x.amount||0),0);
+  return {inc, exp, net: inc-exp};
+}
+function computeUpcoming7(){
+  const start = new Date(); start.setHours(0,0,0,0);
+  const end = addDays(start, 7);
+  const upsInc = state.incomes.filter(x=>x.scheduled && inRange(x.date, start, end));
+  const upsExp = state.expenses.filter(x=>x.scheduled && inRange(x.date, start, end));
+  const sumInc = upsInc.reduce((s,x)=>s+Number(x.amount||0),0);
+  const sumExp = upsExp.reduce((s,x)=>s+Number(x.amount||0),0);
+  const items = [...upsExp.map(x=>({...x, type:'expense'})), ...upsInc.map(x=>({...x, type:'income'}))]
+    .sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+  return {sumInc, sumExp, items};
+}
+function computeProjectedToPayday(){
+  const next = nextPaydayFromSettings();
+  const today = new Date(); today.setHours(0,0,0,0);
+  const upsInc = state.incomes.filter(x=>x.scheduled && inRange(x.date, today, next));
+  const upsExp = state.expenses.filter(x=>x.scheduled && inRange(x.date, today, next));
+  const sumInc = upsInc.reduce((s,x)=>s+Number(x.amount||0),0);
+  const sumExp = upsExp.reduce((s,x)=>s+Number(x.amount||0),0);
+  // current net uses "All up to today" (actuals only)
+  const actualRange = {start: new Date('1970-01-01'), end: today};
+  const {net} = totalsForRange(actualRange);
+  return {next, projected: net + sumInc - sumExp};
+}
+
+// ---- Render ----
+function render(){
+  // settings to UI
+  dom.payFreq.value = state.settings.payFreq||'biweekly';
+  dom.seedPayday.value = toISO(state.settings.seedPayday||todayStr());
+
+  const range = getActiveRange();
+  const {inc, exp, net} = totalsForRange(range);
+  dom.sumIncome.textContent = formatCurrency(inc);
+  dom.sumExpenses.textContent = formatCurrency(exp);
+  dom.sumNet.textContent = formatCurrency(net);
+
+  // projected to payday
+  const proj = computeProjectedToPayday();
+  dom.projectedToPayday.textContent = formatCurrency(proj.projected);
+  dom.nextPaydayLabel.textContent = toISO(proj.next);
+
+  // upcoming 7 days
+  const up = computeUpcoming7();
+  dom.upBills.textContent = formatCurrency(up.sumExp);
+  dom.upIncome.textContent = formatCurrency(up.sumInc);
+  dom.upNet.textContent = formatCurrency(up.sumInc - up.sumExp);
+  dom.upcomingList.innerHTML = up.items.length ? up.items.map(x=>{
+    const sign = x.type==='expense' ? '-' : '+';
+    const col = x.type==='expense' ? 'style="color:#ff9c9c"' : 'style="color:#6fe3b7"';
+    const right = `<span ${col} class="right">${sign}${formatCurrency(x.amount).replace('$','')}</span>`;
+    const mid = x.type==='expense' ? escapeHtml(x.category||'') : escapeHtml(x.source||'');
+    return `<div style="display:flex; justify-content:space-between; gap:8px; padding:4px 0; border-bottom:1px solid #1a2030">
+      <span>${escapeHtml(x.date||'')} &nbsp; ${mid}</span>${right}
+    </div>`;
+  }).join('') : '<div class="muted">No scheduled items in the next 7 days.</div>';
+
+  // tables (filtered for range, but exclude future scheduled items)
+  const incRows = state.incomes.filter(x=>inRange(x.date, range.start, range.end) && !(x.scheduled && isFuture(x.date)))
+    .sort((a,b)=>String(b.date).localeCompare(String(a.date))).map(row=>`
+    <tr>
+      <td>${escapeHtml(row.date||'')}</td>
+      <td>${escapeHtml(row.source||'')}</td>
+      <td>${row.scheduled ? 'Yes' : 'No'}</td>
+      <td class="right mono">${formatCurrency(row.amount||0)}</td>
+      <td class="right"><div class="actions" style="justify-content:flex-end">
+        <button class="btn btn-ghost" data-action="edit-income" data-id="${row.id}">Edit</button>
+        <button class="btn btn-danger" data-action="del-income" data-id="${row.id}">Delete</button>
+      </div></td>
+    </tr>`).join('');
+  dom.incomeTbody.innerHTML = incRows || '<tr><td colspan="5" class="muted">No items for this view.</td></tr>';
+
+  const expRows = state.expenses.filter(x=>inRange(x.date, range.start, range.end) && !(x.scheduled && isFuture(x.date)))
+    .sort((a,b)=>String(b.date).localeCompare(String(a.date))).map(row=>`
+    <tr>
+      <td>${escapeHtml(row.date||'')}</td>
+      <td>${escapeHtml(row.category||'')}</td>
+      <td>${row.scheduled ? 'Yes' : 'No'}</td>
+      <td class="right mono">${formatCurrency(row.amount||0)}</td>
+      <td class="muted">${escapeHtml(row.notes||'')}</td>
+      <td class="right"><div class="actions" style="justify-content:flex-end">
+        <button class="btn btn-ghost" data-action="edit-expense" data-id="${row.id}">Edit</button>
+        <button class="btn btn-danger" data-action="del-expense" data-id="${row.id}">Delete</button>
+      </div></td>
+    </tr>`).join('');
+  dom.expenseTbody.innerHTML = expRows || '<tr><td colspan="6" class="muted">No items for this view.</td></tr>';
+
+  // what-if + calculator (based on actual net to date)
+  const actualRange = {start: new Date('1970-01-01'), end: new Date()};
+  actualRange.end.setHours(0,0,0,0);
+  const {net:actualNet} = totalsForRange(actualRange);
+  const whatIf = Number(dom.whatIfNumber.value||0);
+  dom.projectedBalance.textContent = formatCurrency(actualNet - whatIf);
+  const planned = parseAmount(dom.calcAmount.value); dom.calcResult.textContent = formatCurrency(actualNet - (Number.isFinite(planned)?planned:0));
+}
+
+// ---- Events ----
+function init(){
+  // defaults
+  dom.incomeDate.value = todayStr();
+  dom.expenseDate.value = todayStr();
+  dom.payFreq.value = state.settings.payFreq||'biweekly';
+  dom.seedPayday.value = toISO(state.settings.seedPayday||todayStr());
+
+  // Filters
+  function onFilterChange(){
+    const sel = dom.filterRange.value;
+    const showCustom = sel==='custom';
+    dom.customStart.style.display = showCustom ? '' : 'none';
+    dom.customEnd.style.display = showCustom ? '' : 'none';
+    dom.toSpan.style.display = showCustom ? '' : 'none';
+    render();
+  }
+  dom.filterRange.addEventListener('change', onFilterChange);
+  dom.customStart.addEventListener('change', render);
+  dom.customEnd.addEventListener('change', render);
+
+  // Settings
+  dom.payFreq.addEventListener('change', ()=>{ state.settings.payFreq = dom.payFreq.value; saveState(); render(); });
+  dom.seedPayday.addEventListener('change', ()=>{ state.settings.seedPayday = dom.seedPayday.value; saveState(); render(); });
+
+  // Income form
+  dom.incomeForm.addEventListener('submit', (e)=>{
+    e.preventDefault();
+    const date=dom.incomeDate.value||todayStr();
+    const source=dom.incomeSource.value.trim();
+    const amt=parseAmount(dom.incomeAmount.value);
+    const scheduled= !!dom.incomeScheduled.checked;
+    if(!Number.isFinite(amt)||amt<0){ dom.incomeAmountErr.style.display='block'; return; } else dom.incomeAmountErr.style.display='none';
+    state.incomes.push({id:uid(), date, source, amount:amt, scheduled});
+    saveState(); clearIncomeForm(); render(); toast('Income added');
+  });
+  dom.incomeCancelEdit.addEventListener('click', ()=>{ clearIncomeForm(); });
+
+  // Expenses form
+  dom.expenseForm.addEventListener('submit', (e)=>{
+    e.preventDefault();
+    const date=dom.expenseDate.value||todayStr();
+    const selected=dom.expenseCategory.value;
+    const custom=dom.expenseCategoryCustom.value.trim();
+    const category=custom||selected;
+    const amt=parseAmount(dom.expenseAmount.value);
+    const notes=dom.expenseNotes.value.trim();
+    const scheduled= !!dom.expenseScheduled.checked;
+    if(!Number.isFinite(amt)||amt<0){ dom.expenseAmountErr.style.display='block'; return; } else dom.expenseAmountErr.style.display='none';
+    state.expenses.push({id:uid(), date, category, amount:amt, notes, scheduled});
+    saveState(); clearExpenseForm(); render(); toast('Expense added');
+  });
+  dom.expenseCancelEdit.addEventListener('click', ()=>{ clearExpenseForm(); });
+
+  // Table actions (edit/delete)
+  dom.incomeTbody.addEventListener('click', (e)=>{
+    const btn=e.target.closest('button[data-action]'); if(!btn) return;
+    const id=btn.getAttribute('data-id'); const action=btn.getAttribute('data-action');
+    const it = state.incomes.find(x=>x.id===id);
+    if(action==='edit-income' && it){
+      dom.incomeDate.value=it.date||todayStr();
+      dom.incomeSource.value=it.source||'';
+      dom.incomeAmount.value=Number(it.amount||0).toFixed(2);
+      dom.incomeScheduled.checked = !!it.scheduled;
+      // Save-as-update behavior: remove and re-add on submit
+      state.incomes = state.incomes.filter(x=>x.id!==id);
+      saveState(); render();
+      dom.incomeSubmitBtn.textContent='Save Income';
+    }else if(action==='del-income'){
+      if(confirm('Delete this income item?')){ state.incomes=state.incomes.filter(x=>x.id!==id); saveState(); render(); toast('Income deleted'); }
+    }
+  });
+  dom.expenseTbody.addEventListener('click', (e)=>{
+    const btn=e.target.closest('button[data-action]'); if(!btn) return;
+    const id=btn.getAttribute('data-id'); const action=btn.getAttribute('data-action');
+    const it = state.expenses.find(x=>x.id===id);
+    if(action==='edit-expense' && it){
+      dom.expenseDate.value=it.date||todayStr();
+      const opts=Array.from(dom.expenseCategory.options).map(o=>o.value);
+      if(opts.includes(it.category)){ dom.expenseCategory.value=it.category; dom.expenseCategoryCustom.value=''; }
+      else { dom.expenseCategory.value='Other'; dom.expenseCategoryCustom.value=it.category||''; }
+      dom.expenseAmount.value=Number(it.amount||0).toFixed(2);
+      dom.expenseNotes.value=it.notes||'';
+      dom.expenseScheduled.checked = !!it.scheduled;
+      state.expenses = state.expenses.filter(x=>x.id!==id);
+      saveState(); render();
+      dom.expenseSubmitBtn.textContent='Save Expense';
+    }else if(action==='del-expense'){
+      if(confirm('Delete this expense item?')){ state.expenses=state.expenses.filter(x=>x.id!==id); saveState(); render(); toast('Expense deleted'); }
+    }
+  });
+
+  // Export / Import / Reset
+  dom.exportBtn.addEventListener('click', ()=>{
+    const blob=new Blob([JSON.stringify(state,null,2)], {type:'application/json'});
+    const url=URL.createObjectURL(blob); const a=document.createElement('a');
+    a.href=url; a.download=`budget-export-v11-${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.json`;
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); toast('Exported JSON');
+  });
+  dom.importFile.addEventListener('change', async (e)=>{
+    const file=e.target.files[0]; if(!file) return;
+    try{ const text=await file.text(); const obj=JSON.parse(text);
+      if(!obj || !Array.isArray(obj.incomes) || !Array.isArray(obj.expenses)) throw new Error('Invalid format');
+      // migrate old keys if needed
+      state={version:'1.1', settings: obj.settings||state.settings, incomes:obj.incomes.map(x=>({...x, scheduled: !!x.scheduled})), expenses:obj.expenses.map(x=>({...x, scheduled: !!x.scheduled}))};
+      saveState(); render(); toast('Imported data');
+    }catch(err){ alert('Import failed: '+(err.message||err)); } finally { e.target.value=''; }
+  });
+  dom.resetBtn.addEventListener('click', ()=>{
+    if(!confirm('This will erase ALL budgeting data. Continue?')) return;
+    localStorage.removeItem(LS_KEY); state=seed(); saveState(); render(); toast('All data reset');
+  });
+
+  // What-if & calculator
+  dom.whatIfNumber.addEventListener('input', render);
+  dom.calcAmount.addEventListener('input', render);
+
+  render();
+}
+
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1200)}
+function clearIncomeForm(){ dom.incomeDate.value=todayStr(); dom.incomeSource.value=''; dom.incomeAmount.value=''; dom.incomeScheduled.checked=false; dom.incomeAmountErr.style.display='none'; dom.incomeSubmitBtn.textContent='Add Income'; }
+function clearExpenseForm(){ dom.expenseDate.value=todayStr(); dom.expenseCategory.value='Housing'; dom.expenseCategoryCustom.value=''; dom.expenseAmount.value=''; dom.expenseNotes.value=''; dom.expenseScheduled.checked=false; dom.expenseAmountErr.style.display='none'; dom.expenseSubmitBtn.textContent='Add Expense'; }
+
+init();
+</script>
+</body>
+</html>
