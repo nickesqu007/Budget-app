@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>My Budget</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="theme-color" content="#0b0e13" />
+<link rel="icon" href="./icon-192.png" sizes="192x192">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<style>
+  :root{--bg:#0b0e13;--card:#121722;--muted:#8fa1b3;--text:#e6edf3;--accent:#4aa3ff;--accent-2:#6fe3b7;--danger:#ff6b6b;--warn:#ffbf69;--ok:#58d68d;--border:#1f2633;--shadow:0 8px 24px rgba(0,0,0,.3);--radius:16px;--pad:14px}
+  *{box-sizing:border-box} html,body{height:100%}
+  body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial;background:radial-gradient(1200px 600px at 20% -10%,#132033 0%,#0b0e13 50%) no-repeat,#0b0e13;color:var(--text)}
+  .wrap{max-width:1200px;margin:0 auto;padding:18px}
+  header.summary{position:sticky;top:0;z-index:3;background:linear-gradient(180deg,rgba(11,14,19,.95),rgba(11,14,19,.8));backdrop-filter:blur(6px);padding:16px;border-bottom:1px solid var(--border)}
+  .flex{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+  .pill{padding:10px 14px;border:1px solid var(--border);border-radius:999px;background:#0f1420;box-shadow:var(--shadow);display:flex;gap:8px;align-items:center;white-space:nowrap}
+  .pill strong{font-variant-numeric:tabular-nums}
+  .net{background:linear-gradient(90deg,rgba(74,163,255,.15),rgba(111,227,183,.15));border-color:#233044}
+  .grid{display:grid;gap:16px;margin-top:16px;grid-template-columns:1.2fr 1.2fr .9fr}
+  @media(max-width:1020px){.grid{grid-template-columns:1fr}}
+  .card{background:linear-gradient(180deg,#0f1522,#0c1018);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow)}
+  .card h2{margin:0;padding:14px;border-bottom:1px solid var(--border);font-size:1.05rem;color:#cfe1ff}
+  .section-body{padding:14px}
+  fieldset{border:1px dashed #273046;padding:12px;border-radius:12px;margin:0 0 12px}
+  legend{color:var(--muted);padding:0 8px;font-size:.9rem}
+  label{display:block;font-size:.9rem;color:#bcd;margin-bottom:6px}
+  input,select,button,textarea{width:100%;padding:10px 11px;border-radius:10px;border:1px solid #273046;background:#0a0f17;color:#e6edf3;font-size:.95rem}
+  input[type=number]{font-variant-numeric:tabular-nums}
+  textarea{min-height:72px;resize:vertical}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+  .actions{display:flex;gap:10px;margin-top:8px}
+  .btn{cursor:pointer}.btn-ghost{background:#0a0f17;border:1px solid #273046}.btn-primary{background:linear-gradient(90deg,#2a86f3,#1ec9a5);border:none}.btn-danger{background:#2a1010;border:1px solid #512020;color:#ffd5d5}
+  .totals{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+  .badge{background:#0a0f17;border:1px solid #273046;border-radius:999px;padding:8px 12px;font-variant-numeric:tabular-nums}
+  table{width:100%;border-collapse:collapse;border:1px solid var(--border);border-radius:10px;overflow:hidden}
+  thead th{background:#0a0f17;color:#a8bdd6;text-align:left;font-weight:600;padding:10px;border-bottom:1px solid var(--border)}
+  tbody td{padding:10px;border-bottom:1px solid #1a2030;vertical-align:top}
+  tbody tr:hover{background:#111722}
+  .right{text-align:right}.muted{color:#9fb2cc;font-size:.9rem}
+  .error{color:#ff9c9c;font-size:.85rem;margin-top:6px;display:none}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#101726;color:#def;border:1px solid #273046;border-radius:12px;padding:10px 14px;box-shadow:var(--shadow);z-index:10;opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease}
+  .toast.show{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(-6px)}
+  .slider-wrap{position:relative;padding:10px;border:1px dashed #2b3347;border-radius:12px}
+  input[type=range]{width:100%}
+  .bubble{position:absolute;top:-18px;transform:translateX(-50%);padding:2px 6px;font-size:.8rem;background:#13223a;border:1px solid #24324a;border-radius:8px}
+  .tick-labels{display:flex;justify-content:space-between;font-size:.8rem;color:#9fb2cc;margin-top:4px}
+  .mini-help{font-size:.85rem;color:#9fb2cc;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="summary">
+    <div class="flex">
+      <div class="pill net"><span>Net Balance:</span><strong id="netBalance">$0.00</strong></div>
+      <div class="pill"><span class="muted">Total Income:</span><strong id="totalIncome">$0.00</strong></div>
+      <div class="pill"><span class="muted">Total Expenses:</span><strong id="totalExpenses">$0.00</strong></div>
+      <div class="pill"><span class="muted" id="monthLabel">This Month:</span><strong id="monthTotals">$0.00 / $0.00 / $0.00</strong></div>
+      <div class="actions">
+        <button id="exportBtn" class="btn btn-ghost">Export JSON</button>
+        <label for="importFile" class="btn btn-ghost" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer">
+          Import JSON <input id="importFile" type="file" accept="application/json" style="display:none" />
+        </label>
+        <button id="resetBtn" class="btn btn-danger">⚠ Reset Data</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="grid">
+    <section class="card" aria-labelledby="incomeHeading">
+      <h2 id="incomeHeading">Income</h2>
+      <div class="section-body">
+        <form id="incomeForm" novalidate>
+          <fieldset>
+            <legend>Add / Edit Income</legend>
+            <div class="row">
+              <div>
+                <label for="incomeDate">Date</label>
+                <input id="incomeDate" name="date" type="date" required />
+              </div>
+              <div>
+                <label for="incomeSource">Source</label>
+                <input id="incomeSource" name="source" type="text" placeholder="Paycheck, Refund…" required />
+              </div>
+            </div>
+            <div class="row">
+              <div>
+                <label for="incomeAmount">Amount</label>
+                <input id="incomeAmount" name="amount" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0.00" required />
+                <div id="incomeAmountErr" class="error">Enter a valid non-negative amount.</div>
+              </div>
+              <div>
+                <label>&nbsp;</label>
+                <div class="actions">
+                  <button class="btn btn-primary" id="incomeSubmitBtn" type="submit">Add Income</button>
+                  <button class="btn btn-ghost" id="incomeCancelEdit" type="button" style="display:none">Cancel Edit</button>
+                </div>
+              </div>
+            </div>
+          </fieldset>
+        </form>
+
+        <div class="totals">
+          <div class="badge">Items: <span id="incomeCount">0</span></div>
+          <div class="badge">Sum: <span id="incomeSum">$0.00</span></div>
+        </div>
+
+        <div style="overflow:auto">
+          <table aria-describedby="incomeHeading">
+            <thead><tr><th>Date</th><th>Source</th><th class="right">Amount</th><th class="right">Actions</th></tr></thead>
+            <tbody id="incomeTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="expenseHeading">
+      <h2 id="expenseHeading">Expenses</h2>
+      <div class="section-body">
+        <form id="expenseForm" novalidate>
+          <fieldset>
+            <legend>Add / Edit Expense</legend>
+            <div class="row-3">
+              <div>
+                <label for="expenseDate">Date</label>
+                <input id="expenseDate" name="date" type="date" required />
+              </div>
+              <div>
+                <label for="expenseCategory">Category</label>
+                <select id="expenseCategory" name="category">
+                  <option value="Housing">Housing</option>
+                  <option value="Utilities">Utilities</option>
+                  <option value="Food">Food</option>
+                  <option value="Transport">Transport</option>
+                  <option value="Debt">Debt</option>
+                  <option value="Health">Health</option>
+                  <option value="Entertainment">Entertainment</option>
+                  <option value="Savings">Savings</option>
+                  <option value="Other">Other</option>
+                </select>
+                <div class="mini-help">Or type a custom category:</div>
+                <input id="expenseCategoryCustom" type="text" placeholder="Custom category (optional)" />
+              </div>
+              <div>
+                <label for="expenseAmount">Amount</label>
+                <input id="expenseAmount" name="amount" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0.00" required />
+                <div id="expenseAmountErr" class="error">Enter a valid non-negative amount.</div>
+              </div>
+            </div>
+            <div class="row">
+              <div>
+                <label for="expenseNotes">Notes (optional)</label>
+                <textarea id="expenseNotes" name="notes" placeholder="Short note…"></textarea>
+              </div>
+              <div>
+                <label>&nbsp;</label>
+                <div class="actions">
+                  <button class="btn btn-primary" id="expenseSubmitBtn" type="submit">Add Expense</button>
+                  <button class="btn btn-ghost" id="expenseCancelEdit" type="button" style="display:none">Cancel Edit</button>
+                </div>
+              </div>
+            </div>
+          </fieldset>
+        </form>
+
+        <div class="totals">
+          <div class="badge">Items: <span id="expenseCount">0</span></div>
+          <div class="badge">Sum: <span id="expenseSum">$0.00</span></div>
+        </div>
+
+        <div style="overflow:auto">
+          <table aria-describedby="expenseHeading">
+            <thead><tr><th>Date</th><th>Category</th><th class="right">Amount</th><th>Notes</th><th class="right">Actions</th></tr></thead>
+            <tbody id="expenseTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <aside class="card" aria-labelledby="toolsHeading">
+      <h2 id="toolsHeading">What-If & Calculator</h2>
+      <div class="section-body">
+        <div class="slider-wrap" style="margin-bottom:12px">
+          <div id="sliderBubble" class="bubble">$0</div>
+          <input id="whatIfSlider" type="range" min="0" max="1000" step="1" list="whatIfTicks" />
+          <datalist id="whatIfTicks"></datalist>
+          <div class="tick-labels" id="tickLabels"></div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label for="whatIfNumber">What-If amount</label>
+            <input id="whatIfNumber" type="number" min="0" step="1" inputmode="decimal" />
+          </div>
+          <div>
+            <label>Projected Balance (Net − What-If)</label>
+            <div class="pill" style="justify-content:space-between">
+              <span class="muted">Result</span>
+              <strong id="projectedBalance" class="mono">$0.00</strong>
+            </div>
+          </div>
+        </div>
+
+        <hr style="border:none;border-top:1px solid var(--border);margin:14px 0" />
+
+        <div class="row">
+          <div>
+            <label for="calcAmount">Quick Calculator: Planned purchase</label>
+            <input id="calcAmount" type="number" min="0" step="1" inputmode="decimal" placeholder="e.g., 250" />
+          </div>
+          <div>
+            <label>New Balance (Net − Planned)</label>
+            <div class="pill" style="justify-content:space-between">
+              <span class="muted">Result</span>
+              <strong id="calcResult" class="mono">$0.00</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="mini-help">Tip: Type exact values in the number box; slider is for quick what-ifs.</div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(console.error);
+  });
+}
+const LS_KEY='simple_budget_v1';
+const fmt=new Intl.NumberFormat(undefined,{style:'currency',currency:getLikelyCurrency(),minimumFractionDigits:2,maximumFractionDigits:2});
+function getLikelyCurrency(){try{new Intl.NumberFormat(undefined,{style:'currency',currency:'USD'}).formatToParts(1);return(Intl.NumberFormat().resolvedOptions().currency||'USD')}catch{return'USD'}}
+function formatCurrency(n){return fmt.format(Number(n||0))}
+function parseAmount(v){if(typeof v==='number')return v;if(!v)return NaN;v=String(v).replace(/[^0-9,.\-]/g,'').replace(',', '.');const num=Number(v);return Number.isFinite(num)?num:NaN}
+function uid(){return Math.random().toString(36).slice(2)+Date.now().toString(36)}
+function todayStr(){return new Date().toISOString().slice(0,10)}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+let state=loadState();let editingIncomeId=null,editingExpenseId=null;let totals={tin:0,tex:0,net:0};
+if((!state.incomes||state.incomes.length===0)&&(!state.expenses||state.expenses.length===0)){state.incomes=[{id:uid(),date:isoFromOffsetDays(-10),source:'Paycheck',amount:3200},{id:uid(),date:isoFromOffsetDays(-3),source:'Freelance',amount:450}];state.expenses=[{id:uid(),date:isoFromOffsetDays(-9),category:'Housing',amount:1200,notes:'Rent'},{id:uid(),date:isoFromOffsetDays(-2),category:'Food',amount:245.37,notes:'Groceries'}];saveState()}
+function isoFromOffsetDays(delta){const d=new Date();d.setDate(d.getDate()+delta);return d.toISOString().slice(0,10)}
+function saveState(){localStorage.setItem(LS_KEY,JSON.stringify(state))}
+function loadState(){try{const raw=localStorage.getItem(LS_KEY);if(!raw)return{version:1,incomes:[],expenses:[]};const obj=JSON.parse(raw);return{version:1,incomes:[],expenses:[],...obj}}catch{return{version:1,incomes:[],expenses:[]}}}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1400)}
+const dom={totalIncome:byId('totalIncome'),totalExpenses:byId('totalExpenses'),netBalance:byId('netBalance'),monthLabel:byId('monthLabel'),monthTotals:byId('monthTotals'),incomeForm:byId('incomeForm'),incomeDate:byId('incomeDate'),incomeSource:byId('incomeSource'),incomeAmount:byId('incomeAmount'),incomeAmountErr:byId('incomeAmountErr'),incomeSubmitBtn:byId('incomeSubmitBtn'),incomeCancelEdit:byId('incomeCancelEdit'),incomeTbody:byId('incomeTbody'),incomeCount:byId('incomeCount'),incomeSum:byId('incomeSum'),expenseForm:byId('expenseForm'),expenseDate:byId('expenseDate'),expenseCategory:byId('expenseCategory'),expenseCategoryCustom:byId('expenseCategoryCustom'),expenseAmount:byId('expenseAmount'),expenseAmountErr:byId('expenseAmountErr'),expenseNotes:byId('expenseNotes'),expenseSubmitBtn:byId('expenseSubmitBtn'),expenseCancelEdit:byId('expenseCancelEdit'),expenseTbody:byId('expenseTbody'),expenseCount:byId('expenseCount'),expenseSum:byId('expenseSum'),exportBtn:byId('exportBtn'),importFile:byId('importFile'),resetBtn:byId('resetBtn'),whatIfSlider:byId('whatIfSlider'),sliderBubble:byId('sliderBubble'),whatIfNumber:byId('whatIfNumber'),projectedBalance:byId('projectedBalance'),tickList:byId('whatIfTicks'),tickLabels:byId('tickLabels'),calcAmount:byId('calcAmount'),calcResult:byId('calcResult')};function byId(id){return document.getElementById(id)}
+function recalcTotals(){totals.tin=state.incomes.reduce((s,x)=>s+Number(x.amount||0),0);totals.tex=state.expenses.reduce((s,x)=>s+Number(x.amount||0),0);totals.net=totals.tin-totals.tex;dom.totalIncome.textContent=formatCurrency(totals.tin);dom.totalExpenses.textContent=formatCurrency(totals.tex);dom.netBalance.textContent=formatCurrency(totals.net);const now=new Date();const monthStart=new Date(now.getFullYear(),now.getMonth(),1);const monthEnd=new Date(now.getFullYear(),now.getMonth()+1,0);const monthIn=state.incomes.filter(x=>inRange(x.date,monthStart,monthEnd)).reduce((s,x)=>s+Number(x.amount||0),0);const monthEx=state.expenses.filter(x=>inRange(x.date,monthStart,monthEnd)).reduce((s,x)=>s+Number(x.amount||0),0);const monthNet=monthIn-monthEx;const monthName=monthStart.toLocaleString(undefined,{month:'long',year:'numeric'});dom.monthLabel.textContent=`This Month (${monthName}):`;dom.monthTotals.textContent=`${formatCurrency(monthIn)} / ${formatCurrency(monthEx)} / ${formatCurrency(monthNet)}`;const plannedMax=Math.max(0,...state.incomes.map(i=>i.amount||0),...state.expenses.map(e=>e.amount||0));const max=Math.max(plannedMax,totals.net*1.5,1000);setSliderMax(Math.max(0,Math.round(max)))}
+function inRange(iso,start,end){try{const d=new Date(iso);return d>=start&&d<=end}catch{return false}}
+function renderTables(){const ins=[...state.incomes].sort((a,b)=>(b.date||'').localeCompare(a.date||''));const exs=[...state.expenses].sort((a,b)=>(b.date||'').localeCompare(a.date||''));dom.incomeTbody.innerHTML=ins.map(row=>`<tr><td>${escapeHtml(row.date||'')}</td><td>${escapeHtml(row.source||'')}</td><td class="right mono">${formatCurrency(row.amount||0)}</td><td class="right"><div class="actions" style="justify-content:flex-end"><button class="btn btn-ghost" data-action="edit-income" data-id="${row.id}">Edit</button><button class="btn btn-danger" data-action="del-income" data-id="${row.id}">Delete</button></div></td></tr>`).join('');dom.expenseTbody.innerHTML=exs.map(row=>`<tr><td>${escapeHtml(row.date||'')}</td><td>${escapeHtml(row.category||'')}</td><td class="right mono">${formatCurrency(row.amount||0)}</td><td class="muted">${escapeHtml(row.notes||'')}</td><td class="right"><div class="actions" style="justify-content:flex-end"><button class="btn btn-ghost" data-action="edit-expense" data-id="${row.id}">Edit</button><button class="btn btn-danger" data-action="del-expense" data-id="${row.id}">Delete</button></div></td></tr>`).join('');dom.incomeCount.textContent=String(ins.length);dom.incomeSum.textContent=formatCurrency(ins.reduce((s,x)=>s+Number(x.amount||0),0));dom.expenseCount.textContent=String(exs.length);dom.expenseSum.textContent=formatCurrency(exs.reduce((s,x)=>s+Number(x.amount||0),0))}
+function renderAll(){renderTables();recalcTotals();updateProjected();updateCalc()}
+function setSliderMax(max){const r=dom.whatIfSlider,n=dom.whatIfNumber;const prevMax=Number(r.max||0);r.max=String(max);const step=Math.max(1,Math.round(max/200));r.step=String(step);if(Number(r.value)>max)r.value=String(max);if(Number(n.value)>max)n.value=String(max);const points=[0,.25,.5,.75,1].map(p=>Math.round(max*p));dom.tickList.innerHTML=points.map(v=>`<option value="${v}" label="${formatCompact(v)}"></option>`).join('');document.getElementById('tickLabels').innerHTML=points.map(v=>`<span>${formatCompact(v)}</span>`).join('');if(prevMax!==max)showToast(`Slider max set to ${formatCurrency(max)} (step ${step})`);positionBubble()}
+function formatCompact(n){const abs=Math.abs(n);if(abs>=1_000_000)return(n/1_000_000).toFixed(1)+'M';if(abs>=1_000)return(n/1_000).toFixed(1)+'k';return String(n)}
+function updateProjected(){const whatIf=Number(dom.whatIfNumber.value||dom.whatIfSlider.value||0);const projected=totals.net-whatIf;dom.projectedBalance.textContent=formatCurrency(projected);positionBubble()}
+function positionBubble(){const r=dom.whatIfSlider,b=dom.sliderBubble;const val=Number(r.value||0),min=Number(r.min||0),max=Number(r.max||100);const percent=(val-min)/(max-min||1);const px=percent*r.clientWidth;b.style.left=`${px}px`;b.textContent=formatCurrency(val)}
+function updateCalc(){const v=parseAmount(dom.calcAmount.value);const planned=Number.isFinite(v)?v:0;dom.calcResult.textContent=formatCurrency(totals.net-planned)}
+function init(){dom.incomeDate.value=todayStr();dom.expenseDate.value=todayStr();dom.incomeForm.addEventListener('submit',e=>{e.preventDefault();const date=dom.incomeDate.value||todayStr();const source=dom.incomeSource.value.trim();const amt=parseAmount(dom.incomeAmount.value);if(!Number.isFinite(amt)||amt<0){dom.incomeAmountErr.style.display='block';return}else dom.incomeAmountErr.style.display='none';if(editingIncomeId){const it=state.incomes.find(x=>x.id===editingIncomeId);if(it){it.date=date;it.source=source;it.amount=amt}editingIncomeId=null;dom.incomeSubmitBtn.textContent='Add Income';dom.incomeCancelEdit.style.display='none';showToast('Income updated')}else{state.incomes.push({id:uid(),date,source,amount:amt});showToast('Income added')}saveState();clearIncomeForm();renderAll()});dom.incomeCancelEdit.addEventListener('click',()=>{editingIncomeId=null;dom.incomeSubmitBtn.textContent='Add Income';dom.incomeCancelEdit.style.display='none';clearIncomeForm()});dom.incomeAmount.addEventListener('input',()=>dom.incomeAmountErr.style.display='none');dom.expenseForm.addEventListener('submit',e=>{e.preventDefault();const date=dom.expenseDate.value||todayStr();const selected=dom.expenseCategory.value;const custom=dom.expenseCategoryCustom.value.trim();const category=custom||selected;const amt=parseAmount(dom.expenseAmount.value);const notes=dom.expenseNotes.value.trim();if(!Number.isFinite(amt)||amt<0){dom.expenseAmountErr.style.display='block';return}else dom.expenseAmountErr.style.display='none';if(editingExpenseId){const it=state.expenses.find(x=>x.id===editingExpenseId);if(it){it.date=date;it.category=category;it.amount=amt;it.notes=notes}editingExpenseId=null;dom.expenseSubmitBtn.textContent='Add Expense';dom.expenseCancelEdit.style.display='none';showToast('Expense updated')}else{state.expenses.push({id:uid(),date,category,amount:amt,notes});showToast('Expense added')}saveState();clearExpenseForm();renderAll()});dom.expenseCancelEdit.addEventListener('click',()=>{editingExpenseId=null;dom.expenseSubmitBtn.textContent='Add Expense';dom.expenseCancelEdit.style.display='none';clearExpenseForm()});dom.expenseAmount.addEventListener('input',()=>dom.expenseAmountErr.style.display='none');dom.incomeTbody.addEventListener('click',e=>{const btn=e.target.closest('button[data-action]');if(!btn)return;const id=btn.getAttribute('data-id');const action=btn.getAttribute('data-action');if(action==='edit-income'){const it=state.incomes.find(x=>x.id===id);if(!it)return;dom.incomeDate.value=it.date||todayStr();dom.incomeSource.value=it.source||'';dom.incomeAmount.value=Number(it.amount||0).toFixed(2);editingIncomeId=id;dom.incomeSubmitBtn.textContent='Save Changes';dom.incomeCancelEdit.style.display='inline-block';dom.incomeSource.focus()}else if(action==='del-income'){if(confirm('Delete this income item?')){state.incomes=state.incomes.filter(x=>x.id!==id);saveState();renderAll();showToast('Income deleted')}}});dom.expenseTbody.addEventListener('click',e=>{const btn=e.target.closest('button[data-action]');if(!btn)return;const id=btn.getAttribute('data-id');const action=btn.getAttribute('data-action');if(action==='edit-expense'){const it=state.expenses.find(x=>x.id===id);if(!it)return;dom.expenseDate.value=it.date||todayStr();const opts=Array.from(dom.expenseCategory.options).map(o=>o.value);if(opts.includes(it.category)){dom.expenseCategory.value=it.category;dom.expenseCategoryCustom.value=''}else{dom.expenseCategory.value='Other';dom.expenseCategoryCustom.value=it.category||''}dom.expenseAmount.value=Number(it.amount||0).toFixed(2);dom.expenseNotes.value=it.notes||'';editingExpenseId=id;dom.expenseSubmitBtn.textContent='Save Changes';dom.expenseCancelEdit.style.display='inline-block';dom.expenseAmount.focus()}else if(action==='del-expense'){if(confirm('Delete this expense item?')){state.expenses=state.expenses.filter(x=>x.id!==id);saveState();renderAll();showToast('Expense deleted')}}});dom.exportBtn.addEventListener('click',()=>{const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`budget-export-${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.json`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);showToast('Exported JSON')});dom.importFile.addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;try{const text=await file.text();const obj=JSON.parse(text);if(!obj||!Array.isArray(obj.incomes)||!Array.isArray(obj.expenses))throw new Error('Invalid format');state={version:1,incomes:obj.incomes,expenses:obj.expenses};saveState();renderAll();showToast('Imported data')}catch(err){alert('Import failed: '+(err.message||err))}finally{e.target.value=''}});dom.resetBtn.addEventListener('click',()=>{if(!confirm('This will erase ALL budgeting data. Continue?'))return;localStorage.removeItem(LS_KEY);state={version:1,incomes:[],expenses:[]};saveState();renderAll();showToast('All data reset')});let rafId=null;dom.whatIfSlider.addEventListener('input',()=>{if(rafId)cancelAnimationFrame(rafId);rafId=requestAnimationFrame(()=>{dom.whatIfNumber.value=dom.whatIfSlider.value;updateProjected();rafId=null})});dom.whatIfNumber.addEventListener('input',()=>{const max=Number(dom.whatIfSlider.max||0);const v=Math.max(0,Math.min(Number(dom.whatIfNumber.value||0),max));dom.whatIfNumber.value=String(v);dom.whatIfSlider.value=String(v);updateProjected()});window.addEventListener('resize',positionBubble);dom.calcAmount.addEventListener('input',updateCalc)}
+function clearIncomeForm(){dom.incomeDate.value=todayStr();dom.incomeSource.value='';dom.incomeAmount.value='';dom.incomeAmountErr.style.display='none'}
+function clearExpenseForm(){dom.expenseDate.value=todayStr();dom.expenseCategory.value='Housing';dom.expenseCategoryCustom.value='';dom.expenseAmount.value='';dom.expenseNotes.value='';dom.expenseAmountErr.style.display='none'}
+init();renderAll();dom.whatIfSlider.value='0';dom.whatIfNumber.value='0';positionBubble();
+</script>
+</body>
+</html>
