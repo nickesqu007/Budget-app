@@ -3,11 +3,24 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>My Budget v1.1.1</title>
+<title>My Budget v1.2.0</title>
 <link rel="manifest" href="./manifest.webmanifest">
 <meta name="theme-color" content="#0b0e13" />
 <link rel="icon" href="./icon-192.png" sizes="192x192">
 <link rel="apple-touch-icon" href="./icon-192.png">
+<!--
+How to use (quick):
+- Add income/expenses. Check "Scheduled" for future-dated items (shows in Upcoming).
+- "Mark Paid" (Upcoming) converts a scheduled item to a real transaction dated TODAY. Expenses let you quick-edit amount on the way.
+- Import CSV: map columns, preview, Import. If wrong, use "Undo Last Import".
+- Recurring Expense Templates: define repeating bills; app generates scheduled instances for next 60 days. Edit template -> future instances regenerate.
+- Safe to Spend (conservative): actual net up to today minus scheduled bills before next payday. Pill turns green/red.
+Defaults/notes:
+- Local-only storage (localStorage key: simple_budget_v11). Export/Import JSON available.
+- Frequencies: weekly, biweekly, semi-monthly (1st & 15th), monthly. Monthly clips to last day when needed.
+- Reset clears transactions (keeps settings & templates).
+Next steps (not implemented): category budgets, recurring income, simple bar chart.
+-->
 <style>
   :root{
     --bg:#0b0e13; --card:#121722; --muted:#8fa1b3; --text:#e6edf3;
@@ -25,7 +38,9 @@
     display:flex; gap:8px; align-items:center; white-space:nowrap}
   .pill strong{font-variant-numeric: tabular-nums}
   .net{background: linear-gradient(90deg, rgba(74,163,255,.15), rgba(111,227,183,.15)); border-color:#233044}
-  .grid{display:grid; gap:16px; margin-top:16px; grid-template-columns:1.1fr 1.1fr .9fr}
+  .safe{background: linear-gradient(90deg, rgba(111,227,183,.22), rgba(111,227,183,.05)); border-color:#244238}
+  .safe.negative{background: linear-gradient(90deg, rgba(255,107,107,.20), rgba(255,107,107,.06)); border-color:#4a1f20}
+  .grid{display:grid; gap:16px; margin-top:16px; grid-template-columns:1.15fr 1.15fr .95fr}
   @media (max-width: 1020px){ .grid{grid-template-columns:1fr} }
   .card{background:linear-gradient(180deg, #0f1522, #0c1018); border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow)}
   .card h2{margin:0; padding:14px; border-bottom:1px solid var(--border); font-size:1.05rem; color:#cfe1ff}
@@ -42,7 +57,7 @@
   .btn{cursor:pointer} .btn-ghost{background:#0a0f17; border:1px solid #273046}
   .btn-primary{background:linear-gradient(90deg, #2a86f3, #1ec9a5); border:none}
   .btn-danger{background:#2a1010; border:1px solid #512020; color:#ffd5d5}
-  .badges{display:flex; gap:8px; flex-wrap:wrap}
+  .badges{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
   .badge{background:#0a0f17; border:1px solid #273046; border-radius:999px; padding:6px 10px; font-variant-numeric: tabular-nums; color:#cfe1ff}
   table{width:100%; border-collapse:collapse; border:1px solid var(--border); border-radius:10px; overflow:hidden}
   thead th{background:#0a0f17; color:#a8bdd6; text-align:left; font-weight:600; padding:8px; border-bottom:1px solid var(--border)}
@@ -57,7 +72,10 @@
   .mini-help{font-size:.85rem; color:#9fb2cc; margin-top:8px}
   .filters{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
   .filters select, .filters input[type="date"]{width:auto}
-  .upcoming-list{max-height:160px; overflow:auto; border:1px dashed #273046; border-radius:10px; padding:8px}
+  .upcoming-list{max-height:200px; overflow:auto; border:1px dashed #273046; border-radius:10px; padding:8px}
+  .header-right{display:flex; gap:8px; align-items:center}
+  .nav-btn{background:#0a0f17;border:1px solid #273046;border-radius:999px;padding:6px 10px;cursor:pointer}
+  .summary-row{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:8px}
 </style>
 </head>
 <body>
@@ -91,14 +109,32 @@
         <div class="pill"><span class="muted">Expenses:</span>&nbsp;<strong id="sumExpenses">$0.00</strong></div>
         <div class="pill net"><span>Net:</span>&nbsp;<strong id="sumNet">$0.00</strong></div>
         <div class="pill"><span class="muted">Projected to Payday:</span>&nbsp;<strong id="projectedToPayday">$0.00</strong></div>
+        <div class="pill safe" id="safePill"><span>Safe to Spend:</span>&nbsp;<strong id="safeToSpend">$0.00</strong></div>
       </div>
-      <div class="actions">
+      <div class="header-right">
         <button id="exportBtn" class="btn btn-ghost">Export JSON</button>
         <label for="importFile" class="btn btn-ghost" style="display:inline-flex; align-items:center; gap:8px; cursor:pointer">
           Import JSON <input id="importFile" type="file" accept="application/json" style="display:none" />
         </label>
+        <label for="csvFile" class="btn btn-ghost" style="display:inline-flex; align-items:center; gap:8px; cursor:pointer">
+          Import CSV <input id="csvFile" type="file" accept=".csv,text/csv" style="display:none" />
+        </label>
+        <button id="undoImportBtn" class="btn btn-ghost" title="Undo last CSV import" disabled>Undo Last Import</button>
         <button id="resetBtn" class="btn btn-danger">⚠ Reset Data</button>
       </div>
+    </div>
+
+    <div id="payPeriodHeader" class="summary-row" style="display:none">
+      <button class="nav-btn" id="prevPeriod" aria-label="Previous pay period">◀</button>
+      <div class="badge" id="periodLabel">Aug 1–Aug 15</div>
+      <button class="nav-btn" id="nextPeriod" aria-label="Next pay period">▶</button>
+    </div>
+
+    <div id="weeklySummary" class="summary-row" style="display:none">
+      <div class="badge">Spent this week: <strong id="wkSpent">$0.00</strong></div>
+      <div class="badge">Avg/day: <strong id="wkAvg">$0.00</strong></div>
+      <div class="badge">Projected: <strong id="wkProj">$0.00</strong></div>
+      <div class="badge" id="wkTrend">vs 4-wk avg: <strong>—</strong></div>
     </div>
   </header>
 
@@ -243,6 +279,81 @@
   </div>
 </div>
 
+<!-- CSV Mapping Modal -->
+<div id="csvModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:20; align-items:center; justify-content:center;">
+  <div class="card" style="width:min(980px, 96%); max-height:90%; overflow:auto;">
+    <h2 style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;">
+      Import CSV
+      <button id="csvClose" class="btn btn-ghost" style="width:auto">Close</button>
+    </h2>
+    <div class="section-body">
+      <div class="row-3">
+        <div>
+          <label for="mapDate">Date column</label>
+          <select id="mapDate"></select>
+        </div>
+        <div>
+          <label for="mapDesc">Description column</label>
+          <select id="mapDesc"></select>
+        </div>
+        <div>
+          <label for="amountMode">Amount mode</label>
+          <select id="amountMode">
+            <option value="auto">Auto-detect</option>
+            <option value="signed">Signed Amount column (neg=expense)</option>
+            <option value="dc">Debit/Credit columns</option>
+          </select>
+        </div>
+      </div>
+      <div class="row-3" id="amountRowSigned" style="margin-top:8px; display:none">
+        <div>
+          <label for="mapAmount">Amount column</label>
+          <select id="mapAmount"></select>
+        </div>
+        <div>
+          <label for="invertSign">Invert sign</label>
+          <select id="invertSign">
+            <option value="no">No</option>
+            <option value="yes">Yes</option>
+          </select>
+        </div>
+      </div>
+      <div class="row-3" id="amountRowDC" style="margin-top:8px; display:none">
+        <div>
+          <label for="mapDebit">Debit column</label>
+          <select id="mapDebit"></select>
+        </div>
+        <div>
+          <label for="mapCredit">Credit column</label>
+          <select id="mapCredit"></select>
+        </div>
+        <div>
+          <label for="treatBlankAsZero">Treat blank as 0</label>
+          <select id="treatBlankAsZero">
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="mini-help" style="margin-top:6px">
+        Tip: We’ll skip rows where Description contains “Beginning Balance”.
+      </div>
+
+      <div style="margin:10px 0">
+        <button id="csvImportBtn" class="btn btn-primary" style="width:auto">Import</button>
+      </div>
+
+      <div style="overflow:auto; border:1px solid var(--border); border-radius:10px">
+        <table>
+          <thead><tr id="csvHead"></tr></thead>
+          <tbody id="csvBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <script>
@@ -252,7 +363,7 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-const LS_KEY='simple_budget_v11'; // keep same to preserve data
+const LS_KEY='simple_budget_v11'; // keep to preserve data
 const fmt=new Intl.NumberFormat(undefined,{style:'currency',currency:getLikelyCurrency(),minimumFractionDigits:2,maximumFractionDigits:2});
 function getLikelyCurrency(){try{new Intl.NumberFormat(undefined,{style:'currency',currency:'USD'}).formatToParts(1);return(Intl.NumberFormat().resolvedOptions().currency||'USD')}catch{return'USD'}}
 function formatCurrency(n){return fmt.format(Number(n||0))}
@@ -263,12 +374,17 @@ function toISO(d){return new Date(d).toISOString().slice(0,10)}
 function startOfWeek(d){const dt=new Date(d);const dow=(dt.getDay()+6)%7;dt.setDate(dt.getDate()-dow);dt.setHours(0,0,0,0);return dt}
 function endOfWeek(d){const s=startOfWeek(d);const e=new Date(s);e.setDate(s.getDate()+6);e.setHours(23,59,59,999);return e}
 function addDays(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x}
+function clipDOM(year, month, day){const last=new Date(year, month+1, 0).getDate(); return new Date(year, month, Math.min(day,last));}
 function isFuture(iso){const d=new Date(iso);const t=new Date();t.setHours(0,0,0,0);return d>t}
 function inRange(iso,start,end){try{const d=new Date(iso);return d>=start && d<=end}catch{return false}}
 function escapeHtml(s){return String(s).replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]))}
 
 let state = loadState();
+// Migrations
 if (!state.settings) state.settings = { payFreq:'biweekly', seedPayday: toISO(addDays(new Date(), 14)) };
+if (!('payPeriodOffset' in state)) state.payPeriodOffset = 0;
+if (!state.templates) state.templates = [];           // recurring expense templates
+if (!state.lastImportBatch) state.lastImportBatch = null;
 saveState();
 
 const dom = {
@@ -277,10 +393,18 @@ const dom = {
   sumIncome: byId('sumIncome'), sumExpenses: byId('sumExpenses'), sumNet: byId('sumNet'),
   projectedToPayday: byId('projectedToPayday'), nextPaydayLabel: byId('nextPaydayLabel'),
   upBills: byId('upBills'), upIncome: byId('upIncome'), upNet: byId('upNet'), upcomingList: byId('upcomingList'),
+  safePill: byId('safePill'), safeToSpend: byId('safeToSpend'),
+  payPeriodHeader: byId('payPeriodHeader'), periodLabel: byId('periodLabel'), prevPeriod: byId('prevPeriod'), nextPeriod: byId('nextPeriod'),
+  weeklySummary: byId('weeklySummary'), wkSpent: byId('wkSpent'), wkAvg: byId('wkAvg'), wkProj: byId('wkProj'), wkTrend: byId('wkTrend'),
   incomeForm: byId('incomeForm'), incomeDate: byId('incomeDate'), incomeSource: byId('incomeSource'), incomeAmount: byId('incomeAmount'), incomeAmountErr: byId('incomeAmountErr'), incomeScheduled: byId('incomeScheduled'), incomeSubmitBtn: byId('incomeSubmitBtn'), incomeCancelEdit: byId('incomeCancelEdit'),
   expenseForm: byId('expenseForm'), expenseDate: byId('expenseDate'), expenseCategory: byId('expenseCategory'), expenseCategoryCustom: byId('expenseCategoryCustom'), expenseAmount: byId('expenseAmount'), expenseAmountErr: byId('expenseAmountErr'), expenseNotes: byId('expenseNotes'), expenseScheduled: byId('expenseScheduled'), expenseSubmitBtn: byId('expenseSubmitBtn'), expenseCancelEdit: byId('expenseCancelEdit'),
   incomeTbody: byId('incomeTbody'), expenseTbody: byId('expenseTbody'),
-  exportBtn: byId('exportBtn'), importFile: byId('importFile'), resetBtn: byId('resetBtn'),
+  exportBtn: byId('exportBtn'), importFile: byId('importFile'),
+  csvFile: byId('csvFile'), csvModal: byId('csvModal'), csvClose: byId('csvClose'),
+  mapDate: byId('mapDate'), mapDesc: byId('mapDesc'), amountMode: byId('amountMode'), mapAmount: byId('mapAmount'), invertSign: byId('invertSign'), mapDebit: byId('mapDebit'), mapCredit: byId('mapCredit'), treatBlankAsZero: byId('treatBlankAsZero'),
+  csvHead: byId('csvHead'), csvBody: byId('csvBody'), csvImportBtn: byId('csvImportBtn'),
+  undoImportBtn: byId('undoImportBtn'),
+  resetBtn: byId('resetBtn'),
   whatIfNumber: byId('whatIfNumber'), projectedBalance: byId('projectedBalance'), calcAmount: byId('calcAmount'), calcResult: byId('calcResult')
 };
 function byId(id){return document.getElementById(id)}
@@ -288,7 +412,7 @@ function byId(id){return document.getElementById(id)}
 function loadState(){try{const raw=localStorage.getItem(LS_KEY); if(!raw) return seed(); const obj=JSON.parse(raw); return obj;}catch{return seed()}}
 function saveState(){localStorage.setItem(LS_KEY, JSON.stringify(state))}
 function seed(){
-  const s = { version:'1.1.1', settings:{payFreq:'biweekly', seedPayday: toISO(addDays(new Date(), 14))}, incomes:[], expenses:[] };
+  const s = { version:'1.2.0', settings:{payFreq:'biweekly', seedPayday: toISO(addDays(new Date(), 14))}, payPeriodOffset:0, incomes:[], expenses:[], templates:[], lastImportBatch:null };
   // tiny seed (first run only)
   s.incomes.push({id:uid(), date:toISO(addDays(new Date(), -10)), source:'Paycheck', amount:3200, scheduled:false});
   s.incomes.push({id:uid(), date:toISO(addDays(new Date(), -3)), source:'Freelance', amount:450, scheduled:false});
@@ -298,7 +422,7 @@ function seed(){
 }
 
 // ---- Pay period helpers ----
-function nextPaydayFromSettings(){
+function nextPaydayFromSettings(offset=0){
   const freq = state.settings.payFreq||'biweekly';
   const seed = new Date(state.settings.seedPayday||todayStr());
   const today = new Date(); today.setHours(0,0,0,0);
@@ -306,37 +430,55 @@ function nextPaydayFromSettings(){
   function advance(n){ next.setDate(next.getDate()+n); }
   if (freq==='weekly'){
     while (next <= today) advance(7);
+    // apply offset
+    advance(7*offset);
   } else if (freq==='biweekly'){
     while (next <= today) advance(14);
+    advance(14*offset);
   } else if (freq==='semimonthly'){
-    // 1st and 15th
-    const y = today.getFullYear(), m = today.getMonth();
-    const candidates = [new Date(y,m,1), new Date(y,m,15), new Date(y,m+1,1), new Date(y,m+1,15)];
-    next = candidates.find(d=>d>=today) || candidates[candidates.length-1];
+    // 1st and 15th windows
+    const base = new Date(today);
+    base.setMonth(base.getMonth(), 1); // beginning of month
+    let periods = [];
+    for (let m=-1; m<=2; m++){
+      const y=base.getFullYear(), mo=base.getMonth()+m;
+      periods.push(new Date(y,mo,1));
+      periods.push(new Date(y,mo,15));
+    }
+    next = periods.find(d=>{const dd=new Date(d); dd.setHours(0,0,0,0); return dd>=today}) || periods[periods.length-1];
+    // offset by half-month increments
+    const stepDays = 14; // approx, used only to move label; exact range calculated below
+    next.setDate(next.getDate()+offset*stepDays);
   } else if (freq==='monthly'){
     const day = new Date(state.settings.seedPayday||todayStr()).getDate();
     next = new Date(today.getFullYear(), today.getMonth(), day);
     if (next <= today) next = new Date(today.getFullYear(), today.getMonth()+1, day);
+    next.setMonth(next.getMonth()+offset);
   }
   next.setHours(0,0,0,0);
   return next;
 }
 function currentPayPeriodRange(){
   const freq = state.settings.payFreq||'biweekly';
-  const next = nextPaydayFromSettings();
+  const next = nextPaydayFromSettings(state.payPeriodOffset||0);
   const end = new Date(next); end.setHours(23,59,59,999);
   const start = new Date(next);
   if (freq==='weekly') start.setDate(start.getDate()-7);
   else if (freq==='biweekly') start.setDate(start.getDate()-14);
   else if (freq==='semimonthly'){
-    // start is previous 1st or 15th
-    const d = new Date(); const y=d.getFullYear(), m=d.getMonth(), day=d.getDate();
-    if (day <= 15) start.setFullYear(y, m-1, 15); else start.setFullYear(y, m, 1);
+    const d = new Date(next);
+    const y=d.getFullYear(), m=d.getMonth();
+    // Determine previous boundary (1st or 15th) relative to 'next'
+    if (d.getDate() <= 15) start.setFullYear(y, m-1, 15); else start.setFullYear(y, m, 1);
   } else if (freq==='monthly'){
     start.setMonth(start.getMonth()-1);
   }
   start.setHours(0,0,0,0);
   return {start, end};
+}
+function formatRangeShort(start,end){
+  const months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return `${months[start.getMonth()]} ${start.getDate()}–${months[end.getMonth()]} ${end.getDate()}`;
 }
 
 // ---- Filtering ----
@@ -383,17 +525,103 @@ function computeProjectedToPayday(){
   const upsExp = state.expenses.filter(x=>x.scheduled && inRange(x.date, today, next));
   const sumInc = upsInc.reduce((s,x)=>s+Number(x.amount||0),0);
   const sumExp = upsExp.reduce((s,x)=>s+Number(x.amount||0),0);
-  // current net uses "All up to today" (actuals only)
   const actualRange = {start: new Date('1970-01-01'), end: today};
   const {net} = totalsForRange(actualRange);
   return {next, projected: net + sumInc - sumExp};
 }
+function computeSafeToSpend(){
+  const next = nextPaydayFromSettings();
+  const today = new Date(); today.setHours(0,0,0,0);
+  const scheduledBills = state.expenses
+        .filter(x=>x.scheduled && inRange(x.date, today, next))
+        .reduce((s,x)=>s+Number(x.amount||0),0);
+  const actualRange = {start: new Date('1970-01-01'), end: today};
+  const {net: actualNet} = totalsForRange(actualRange);
+  return {next, safe: actualNet - scheduledBills};
+}
+function weeklySummaryCalc(){
+  const now = new Date(); now.setHours(0,0,0,0);
+  const s = startOfWeek(now), e=endOfWeek(now);
+  const daysElapsed = Math.max(1, Math.min(7, Math.floor((now - s)/86400000)+1));
+  const spent = state.expenses.filter(x=>!x.scheduled && inRange(x.date, s, e)).reduce((a,b)=>a+Number(b.amount||0),0);
+  const avg = spent / daysElapsed;
+  const proj = avg * 7;
+  // 4 prior full weeks
+  let sumPrior=0; for (let i=1;i<=4;i++){ const ps=addDays(s,-7*i), pe=addDays(e,-7*i);
+    sumPrior += state.expenses.filter(x=>!x.scheduled && inRange(x.date, ps, pe)).reduce((a,b)=>a+Number(b.amount||0),0);
+  }
+  const avg4 = sumPrior/4;
+  return {spent, avg, proj, avg4};
+}
+
+// ---- Recurring expense templates ----
+function generateTemplateInstances(){
+  const windowDays = 60;
+  const start = new Date(); start.setHours(0,0,0,0);
+  const end = addDays(start, windowDays);
+  // remove future instances for inactive templates or out-of-window ones
+  state.expenses = state.expenses.filter(x=>{
+    if (!x.scheduled || !x.templateId) return true;
+    const tpl = state.templates.find(t=>t.id===x.templateId);
+    if (!tpl || tpl.active===false) return false;
+    const d=new Date(x.date);
+    return d>=start && d<=end; // keep only within window
+  });
+  // for each active template, generate dates within window if missing
+  for (const t of state.templates){
+    if (t.active===false) continue;
+    let dates=[];
+    const begin = new Date(start);
+    const startDate = new Date(t.startDate||start);
+    const genStart = begin>startDate? begin : startDate;
+    const addInst = (d)=>{
+      const iso=toISO(d);
+      const exists = state.expenses.some(x=>x.scheduled && x.templateId===t.id && x.date===iso);
+      if (!exists) state.expenses.push({id:uid(), date:iso, category:t.label||'Bill', amount:Number(t.amount||0), notes:t.notes||'', scheduled:true, templateId:t.id});
+    };
+    if (t.freq==='weekly'){
+      // align to chosen weekday
+      let d=new Date(genStart);
+      while (d.getDay()!== (t.weekday??5)) d.setDate(d.getDate()+1);
+      while (d<=end){ addInst(d); d=addDays(d,7); }
+    } else if (t.freq==='biweekly'){
+      // align using seedDate weekday + every 14 days
+      const seed=new Date(t.seedDate||t.startDate||genStart);
+      let d=new Date(seed);
+      // move d forward to >= genStart by steps of 14
+      while (d<genStart) d=addDays(d,14);
+      while (d<=end){ addInst(d); d=addDays(d,14); }
+    } else if (t.freq==='semimonthly'){
+      // 1st and 15th
+      let d=new Date(genStart.getFullYear(), genStart.getMonth(), 1);
+      while (d<=end){
+        const d1=new Date(d.getFullYear(), d.getMonth(), 1);
+        const d15=new Date(d.getFullYear(), d.getMonth(), 15);
+        if (d1>=genStart && d1<=end) addInst(d1);
+        if (d15>=genStart && d15<=end) addInst(d15);
+        d.setMonth(d.getMonth()+1,1);
+      }
+    } else if (t.freq==='monthly'){
+      let d=new Date(genStart.getFullYear(), genStart.getMonth(), 1);
+      const day = Math.min(31, Math.max(1, Number(t.day||1)));
+      while (d<=end){
+        const clipped=clipDOM(d.getFullYear(), d.getMonth(), day);
+        if (clipped>=genStart && clipped<=end) addInst(clipped);
+        d.setMonth(d.getMonth()+1,1);
+      }
+    }
+  }
+}
 
 // ---- Render ----
 function render(){
+  // generate future instances from templates
+  generateTemplateInstances();
+
   // settings to UI
   dom.payFreq.value = state.settings.payFreq||'biweekly';
   dom.seedPayday.value = toISO(state.settings.seedPayday||todayStr());
+  dom.undoImportBtn.disabled = !(state.lastImportBatch && Array.isArray(state.lastImportBatch.ids) && state.lastImportBatch.ids.length);
 
   const range = getActiveRange();
   const {inc, exp, net} = totalsForRange(range);
@@ -401,12 +629,36 @@ function render(){
   dom.sumExpenses.textContent = formatCurrency(exp);
   dom.sumNet.textContent = formatCurrency(net);
 
-  // projected to payday
+  // pay period header & weekly summary visibility
+  const isPayPeriod = (dom.filterRange.value==='payPeriod');
+  dom.payPeriodHeader.style.display = isPayPeriod ? '' : 'none';
+  if (isPayPeriod){
+    const {start,end}=currentPayPeriodRange();
+    dom.periodLabel.textContent = formatRangeShort(start,end);
+  }
+  const isThisWeek = (dom.filterRange.value==='thisWeek');
+  dom.weeklySummary.style.display = isThisWeek ? '' : 'none';
+  if (isThisWeek){
+    const s=weeklySummaryCalc();
+    dom.wkSpent.textContent = formatCurrency(s.spent);
+    dom.wkAvg.textContent = formatCurrency(s.avg);
+    dom.wkProj.textContent = formatCurrency(s.proj);
+    const diff = s.spent - s.avg4;
+    const sign = diff>=0 ? '▲' : '▼';
+    const color = diff>=0 ? '#ff9c9c' : '#6fe3b7';
+    dom.wkTrend.innerHTML = `vs 4-wk avg: <strong style="color:${color}">${sign} ${formatCurrency(Math.abs(diff))}</strong>`;
+  }
+
+  // projected to payday & safe to spend
   const proj = computeProjectedToPayday();
   dom.projectedToPayday.textContent = formatCurrency(proj.projected);
   dom.nextPaydayLabel.textContent = toISO(proj.next);
 
-  // upcoming 7 days  (with Delete buttons)
+  const sts = computeSafeToSpend();
+  dom.safeToSpend.textContent = formatCurrency(sts.safe);
+  dom.safePill.classList.toggle('negative', sts.safe < 0);
+
+  // upcoming 7 days  (Mark Paid + Delete buttons)
   const up = computeUpcoming7();
   dom.upBills.textContent = formatCurrency(up.sumExp);
   dom.upIncome.textContent = formatCurrency(up.sumInc);
@@ -417,6 +669,7 @@ function render(){
     const right = `<span ${col} class="right">${sign}${formatCurrency(x.amount).replace('$','')}</span>`;
     const label = x.type==='expense' ? escapeHtml(x.category||'') : escapeHtml(x.source||'');
     const actions = `<div style="display:flex; gap:6px">
+      <button class="btn btn-ghost" data-act="paid" data-type="${x.type}" data-id="${x.id}">Mark Paid</button>
       <button class="btn btn-ghost" data-act="del" data-type="${x.type}" data-id="${x.id}">Delete</button>
     </div>`;
     return `<div style="display:flex; justify-content:space-between; gap:8px; padding:6px 0; border-bottom:1px solid #1a2030">
@@ -485,6 +738,10 @@ function init(){
   dom.customStart.addEventListener('change', render);
   dom.customEnd.addEventListener('change', render);
 
+  // Pay period prev/next
+  dom.prevPeriod.addEventListener('click', ()=>{ state.payPeriodOffset=(state.payPeriodOffset||0)-1; render(); saveState(); });
+  dom.nextPeriod.addEventListener('click', ()=>{ state.payPeriodOffset=(state.payPeriodOffset||0)+1; render(); saveState(); });
+
   // Settings
   dom.payFreq.addEventListener('change', ()=>{ state.settings.payFreq = dom.payFreq.value; saveState(); render(); });
   dom.seedPayday.addEventListener('change', ()=>{ state.settings.seedPayday = dom.seedPayday.value; saveState(); render(); });
@@ -528,7 +785,6 @@ function init(){
       dom.incomeSource.value=it.source||'';
       dom.incomeAmount.value=Number(it.amount||0).toFixed(2);
       dom.incomeScheduled.checked = !!it.scheduled;
-      // Save-as-update behavior: remove and re-add on submit
       state.incomes = state.incomes.filter(x=>x.id!==id);
       saveState(); render();
       dom.incomeSubmitBtn.textContent='Save Income';
@@ -556,46 +812,76 @@ function init(){
     }
   });
 
-  // Export / Import / Reset
+  // Export / Import JSON
   dom.exportBtn.addEventListener('click', ()=>{
     const blob=new Blob([JSON.stringify(state,null,2)], {type:'application/json'});
     const url=URL.createObjectURL(blob); const a=document.createElement('a');
-    a.href=url; a.download=`budget-export-v11-${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.json`;
+    a.href=url; a.download=`budget-export-v12-${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.json`;
     document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); toast('Exported JSON');
   });
   dom.importFile.addEventListener('change', async (e)=>{
     const file=e.target.files[0]; if(!file) return;
     try{ const text=await file.text(); const obj=JSON.parse(text);
       if(!obj || !Array.isArray(obj.incomes) || !Array.isArray(obj.expenses)) throw new Error('Invalid format');
-      state={version:'1.1.1', settings: obj.settings||state.settings, incomes:obj.incomes.map(x=>({...x, scheduled: !!x.scheduled})), expenses:obj.expenses.map(x=>({...x, scheduled: !!x.scheduled}))};
+      state={
+        version: obj.version||'1.2.0',
+        settings: obj.settings||state.settings,
+        payPeriodOffset: obj.payPeriodOffset||0,
+        incomes: obj.incomes.map(x=>({...x, scheduled: !!x.scheduled})),
+        expenses: obj.expenses.map(x=>({...x, scheduled: !!x.scheduled})),
+        templates: Array.isArray(obj.templates)? obj.templates : (state.templates||[]),
+        lastImportBatch: null
+      };
       saveState(); render(); toast('Imported data');
     }catch(err){ alert('Import failed: '+(err.message||err)); } finally { e.target.value=''; }
   });
 
-  // TRUE RESET: clear transactions, keep settings
+  // TRUE RESET: clear transactions, keep settings & templates
   dom.resetBtn.addEventListener('click', ()=>{
-    if (!confirm('This will erase ALL budgeting data. Continue?')) return;
+    if (!confirm('This will erase ALL incomes/expenses. Keep settings & templates?')) return;
     const settings = state.settings || { payFreq:'biweekly', seedPayday: toISO(addDays(new Date(), 14)) };
-    state = { version:'1.1.1', settings, incomes:[], expenses:[] };
+    const templates = state.templates || [];
+    state = { version:'1.2.0', settings, payPeriodOffset:0, incomes:[], expenses:[], templates, lastImportBatch:null };
     saveState();
     render();
-    toast('All data cleared');
+    toast('All transactions cleared');
   });
 
-  // Upcoming list actions (Delete scheduled item)
+  // Upcoming list actions (Mark Paid / Delete scheduled item)
   dom.upcomingList.addEventListener('click', (e)=>{
     const btn = e.target.closest('button[data-act]');
     if (!btn) return;
-    const act = btn.getAttribute('data-act');     // 'del'
+    const act = btn.getAttribute('data-act');     // 'paid' | 'del'
     const id  = btn.getAttribute('data-id');      // item id
     const typ = btn.getAttribute('data-type');    // 'income' | 'expense'
     if (act === 'del') {
       if (!confirm('Delete this scheduled item?')) return;
       if (typ === 'income') state.incomes = state.incomes.filter(x => x.id !== id);
       else state.expenses = state.expenses.filter(x => x.id !== id);
-      saveState();
-      render();
-      toast('Scheduled item deleted');
+      saveState(); render(); toast('Scheduled item deleted');
+    } else if (act === 'paid') {
+      if (typ === 'income') {
+        const it = state.incomes.find(x=>x.id===id);
+        if (!it) return;
+        const posted = toISO(new Date()); // today-date per spec
+        // convert to actual
+        state.incomes = state.incomes.filter(x=>x.id!==id);
+        state.incomes.push({id:uid(), date:posted, source:it.source||'Income', amount:Number(it.amount||0), scheduled:false});
+        saveState(); render(); toast('Marked paid');
+      } else {
+        const it = state.expenses.find(x=>x.id===id);
+        if (!it) return;
+        // quick edit of amount on mark paid
+        let amt = Number(it.amount||0);
+        const next = prompt('Confirm amount for payment (you can adjust):', (Number(amt).toFixed(2)));
+        if (next===null) return; // cancelled
+        const parsed = parseAmount(next);
+        if (!Number.isFinite(parsed) || parsed<0){ alert('Invalid amount'); return; }
+        const posted = toISO(new Date());
+        state.expenses = state.expenses.filter(x=>x.id!==id);
+        state.expenses.push({id:uid(), date:posted, category:it.category||'Expense', amount:parsed, notes:it.notes||'', scheduled:false});
+        saveState(); render(); toast('Marked paid');
+      }
     }
   });
 
@@ -603,10 +889,160 @@ function init(){
   dom.whatIfNumber.addEventListener('input', render);
   dom.calcAmount.addEventListener('input', render);
 
+  // CSV Import
+  dom.csvClose.addEventListener('click', closeCsvModal);
+  dom.csvImportBtn.addEventListener('click', importCsvMapped);
+  dom.csvFile.addEventListener('change', handleCsvFile);
+  dom.amountMode.addEventListener('change', updateAmountModeUI);
+
   render();
 }
 
-function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1200)}
+// ---- CSV support ----
+let _csvData = { headers:[], rows:[] };
+function handleCsvFile(e){
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload = () => {
+    const text=reader.result;
+    const parsed=parseCSV(text);
+    if (!parsed.headers.length){ alert('Could not read CSV headers.'); return; }
+    _csvData=parsed;
+    openCsvModal(parsed);
+  };
+  reader.readAsText(file);
+  // reset input so selecting same file again works
+  e.target.value='';
+}
+function parseCSV(text){
+  // simple CSV parser handling quotes & commas
+  const rows=[]; let cur='', inQ=false; let row=[];
+  for (let i=0;i<text.length;i++){
+    const c=text[i], n=text[i+1];
+    if (inQ){
+      if (c==='\"' && n==='\"'){ cur+='\"'; i++; }
+      else if (c==='\"'){ inQ=false; }
+      else cur+=c;
+    }else{
+      if (c==='\"'){ inQ=true; }
+      else if (c===',' ){ row.push(cur); cur=''; }
+      else if (c==='\n' || c==='\r'){ if (cur!=='' || row.length){ row.push(cur); rows.push(row); row=[]; cur=''; } }
+      else cur+=c;
+    }
+  }
+  if (cur!=='' || row.length){ row.push(cur); rows.push(row); }
+  // headers + sample rows
+  const headers = (rows.shift()||[]).map(h=>h.trim());
+  return { headers, rows };
+}
+function openCsvModal(parsed){
+  // fill selects
+  const H=parsed.headers;
+  fillSelect(dom.mapDate, H, guessHeader(H, ['post date','date','effective date']));
+  fillSelect(dom.mapDesc, H, guessHeader(H, ['transaction description','description','memo','details']));
+  fillSelect(dom.mapAmount, H, guessHeader(H, ['amount','transaction amount']));
+  fillSelect(dom.mapDebit, H, guessHeader(H, ['debit']));
+  fillSelect(dom.mapCredit, H, guessHeader(H, ['credit']));
+  dom.amountMode.value = autoAmountMode(H);
+  updateAmountModeUI();
+
+  // build preview (first 20)
+  dom.csvHead.innerHTML = H.map(h=>`<th>${escapeHtml(h||'')}</th>`).join('');
+  const max= Math.min(20, parsed.rows.length);
+  dom.csvBody.innerHTML = parsed.rows.slice(0,max).map(r=>`<tr>${H.map((_,i)=>`<td>${escapeHtml(r[i]||'')}</td>`).join('')}</tr>`).join('');
+  dom.csvModal.style.display='flex';
+}
+function closeCsvModal(){ dom.csvModal.style.display='none'; _csvData={headers:[],rows:[]}; }
+function fillSelect(sel, headers, selected){
+  sel.innerHTML = headers.map(h=>`<option value="${escapeHtml(h)}">${escapeHtml(h)}</option>`).join('');
+  if (selected && headers.includes(selected)) sel.value=selected;
+}
+function guessHeader(headers, candidates){
+  const lower=headers.map(h=>h.toLowerCase());
+  for (const c of candidates){
+    const idx=lower.indexOf(c);
+    if (idx>=0) return headers[idx];
+    // contains
+    const foundIdx=lower.findIndex(h=>h.includes(c));
+    if (foundIdx>=0) return headers[foundIdx];
+  }
+  return headers[0]||'';
+}
+function autoAmountMode(H){
+  const lower=H.map(h=>h.toLowerCase());
+  if (lower.some(h=>h.includes('debit')) && lower.some(h=>h.includes('credit'))) return 'dc';
+  if (lower.some(h=>h.includes('amount'))) return 'signed';
+  return 'auto';
+}
+function updateAmountModeUI(){
+  const mode=dom.amountMode.value;
+  dom.amountRowSigned.style.display = (mode==='signed' || mode==='auto') ? '' : 'none';
+  dom.amountRowDC.style.display = (mode==='dc') ? '' : 'none';
+}
+function importCsvMapped(){
+  const H=_csvData.headers, rows=_csvData.rows;
+  if (!H.length){ alert('No CSV loaded'); return; }
+  const hDate = dom.mapDate.value, hDesc=dom.mapDesc.value;
+  const mode = (dom.amountMode.value==='auto') ? autoAmountMode(H) : dom.amountMode.value;
+  const idsImported=[];
+  let count=0;
+  for (const r of rows){
+    const map = Object.create(null);
+    H.forEach((h,i)=> map[h]=r[i]||'');
+    const desc = String(map[hDesc]||'').trim();
+    if (/beginning balance/i.test(desc)) continue;
+
+    // date
+    let dstr = String(map[hDate]||'').trim();
+    if (!dstr) continue;
+    const dtry = new Date(dstr);
+    if (isNaN(dtry.getTime())) continue;
+    const iso = toISO(dtry);
+
+    // amount
+    let amt = 0;
+    if (mode==='dc'){
+      const debit = parseAmount(map[dom.mapDebit.value]);
+      const credit = parseAmount(map[dom.mapCredit.value]);
+      const d = Number.isFinite(debit)?debit:0;
+      const c = Number.isFinite(credit)?credit:0;
+      amt = c - d; // credit positive, debit negative
+    } else { // signed
+      let a = parseAmount(map[dom.mapAmount.value]);
+      if (!Number.isFinite(a)) continue;
+      if (dom.invertSign.value==='yes') a = -a;
+      amt = a;
+    }
+
+    // build transaction
+    if (amt === 0) continue;
+    if (amt > 0){
+      state.incomes.push({id:uid(), date:iso, source:desc||'Import', amount:amt, scheduled:false});
+      idsImported.push(state.incomes[state.incomes.length-1].id);
+    } else {
+      state.expenses.push({id:uid(), date:iso, category:'Imported', amount:Math.abs(amt), notes:desc||'', scheduled:false});
+      idsImported.push(state.expenses[state.expenses.length-1].id);
+    }
+    count++;
+  }
+  state.lastImportBatch = { ids: idsImported, ts: Date.now() };
+  saveState(); render(); closeCsvModal();
+  toast(`Imported ${count} rows`);
+}
+dom.undoImportBtn?.addEventListener('click', ()=>{
+  const batch = state.lastImportBatch;
+  if (!batch || !Array.isArray(batch.ids) || !batch.ids.length) return;
+  const set=new Set(batch.ids);
+  const b1=state.incomes.length, b2=state.expenses.length;
+  state.incomes = state.incomes.filter(x=>!set.has(x.id));
+  state.expenses = state.expenses.filter(x=>!set.has(x.id));
+  const removed=(b1-state.incomes.length)+(b2-state.expenses.length);
+  state.lastImportBatch=null;
+  saveState(); render(); toast(`Undid ${removed} imported rows`);
+});
+
+// helpers
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1400)}
 function clearIncomeForm(){ dom.incomeDate.value=todayStr(); dom.incomeSource.value=''; dom.incomeAmount.value=''; dom.incomeScheduled.checked=false; dom.incomeAmountErr.style.display='none'; dom.incomeSubmitBtn.textContent='Add Income'; }
 function clearExpenseForm(){ dom.expenseDate.value=todayStr(); dom.expenseCategory.value='Housing'; dom.expenseCategoryCustom.value=''; dom.expenseAmount.value=''; dom.expenseNotes.value=''; dom.expenseScheduled.checked=false; dom.expenseAmountErr.style.display='none'; dom.expenseSubmitBtn.textContent='Add Expense'; }
 
