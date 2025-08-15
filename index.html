@@ -3,31 +3,32 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>My Budget v1.2.0</title>
+<title>My Budget v1.3.0</title>
 <link rel="manifest" href="./manifest.webmanifest">
 <meta name="theme-color" content="#0b0e13" />
 <link rel="icon" href="./icon-192.png" sizes="192x192">
 <link rel="apple-touch-icon" href="./icon-192.png">
 <!--
-How to use (quick):
-- Add income/expenses. Check "Scheduled" for future-dated items (shows in Upcoming).
-- "Mark Paid" (Upcoming) converts a scheduled item to a real transaction dated TODAY. Expenses let you quick-edit amount on the way.
-- Import CSV: map columns, preview, Import. If wrong, use "Undo Last Import".
-- Recurring Expense Templates: define repeating bills; app generates scheduled instances for next 60 days. Edit template -> future instances regenerate.
-- Safe to Spend (conservative): actual net up to today minus scheduled bills before next payday. Pill turns green/red.
-Defaults/notes:
-- Local-only storage (localStorage key: simple_budget_v11). Export/Import JSON available.
-- Frequencies: weekly, biweekly, semi-monthly (1st & 15th), monthly. Monthly clips to last day when needed.
-- Reset clears transactions (keeps settings & templates).
+How to use (high level):
+- Home: big-picture snapshot + Upcoming (7 days).
+- Transactions: add/edit Income & Expenses. Check "Scheduled" for future bills/income.
+- Calendar: month view (bills-only). Tap a day to Mark Paid (with quick amount edit).
+- Templates: define recurring expense templates; engine generates scheduled instances 60 days ahead.
+- Tools: calculators, JSON/CSV import/export (with Undo), optional E2EE Cloud Sync via GitHub Gist.
+- Safe to Spend (conservative) = actual net to today − scheduled bills before next payday (green/red).
+Data & safety:
+- Local storage key: simple_budget_v11 (kept to preserve your data).
+- Optional E2EE Sync requires your GitHub Gist token; all synced data is AES-GCM encrypted with your passphrase.
 Next steps (not implemented): category budgets, recurring income, simple bar chart.
 -->
 <style>
   :root{
     --bg:#0b0e13; --card:#121722; --muted:#8fa1b3; --text:#e6edf3;
     --accent:#4aa3ff; --accent-2:#6fe3b7; --danger:#ff6b6b; --ok:#58d68d;
-    --border:#1f2633; --shadow:0 8px 24px rgba(0,0,0,.3); --radius:16px;
+    --border:#1f2633; --shadow:0 8px 24px rgba(0,0,0,.3);
   }
-  *{box-sizing:border-box} html,body{height:100%}
+  *{box-sizing:border-box}
+  html,body{height:100%}
   body{margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
     background: radial-gradient(1200px 600px at 20% -10%, #132033 0%, #0b0e13 50%) no-repeat, var(--bg); color:var(--text);}
   .wrap{max-width:1200px; margin:0 auto; padding:18px}
@@ -40,42 +41,44 @@ Next steps (not implemented): category budgets, recurring income, simple bar cha
   .net{background: linear-gradient(90deg, rgba(74,163,255,.15), rgba(111,227,183,.15)); border-color:#233044}
   .safe{background: linear-gradient(90deg, rgba(111,227,183,.22), rgba(111,227,183,.05)); border-color:#244238}
   .safe.negative{background: linear-gradient(90deg, rgba(255,107,107,.20), rgba(255,107,107,.06)); border-color:#4a1f20}
-  .grid{display:grid; gap:16px; margin-top:16px; grid-template-columns:1.15fr 1.15fr .95fr}
-  @media (max-width: 1020px){ .grid{grid-template-columns:1fr} }
-  .card{background:linear-gradient(180deg, #0f1522, #0c1018); border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow)}
-  .card h2{margin:0; padding:14px; border-bottom:1px solid var(--border); font-size:1.05rem; color:#cfe1ff}
-  .section-body{padding:14px}
-  fieldset{border:1px dashed #273046; padding:12px; border-radius:12px; margin:0 0 12px}
-  legend{color:var(--muted); padding:0 8px; font-size:.9rem}
-  label{display:block; font-size:.9rem; color:#bcd; margin-bottom:6px}
-  input, select, button, textarea{width:100%; padding:9px 10px; border-radius:10px; border:1px solid #273046; background:#0a0f17; color:var(--text); font-size:.95rem}
-  input[type="number"]{font-variant-numeric: tabular-nums}
-  textarea{min-height:64px; resize:vertical}
-  .row{display:grid; grid-template-columns:1fr 1fr; gap:10px}
-  .row-3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px}
-  .actions{display:flex; gap:10px; margin-top:8px}
-  .btn{cursor:pointer} .btn-ghost{background:#0a0f17; border:1px solid #273046}
-  .btn-primary{background:linear-gradient(90deg, #2a86f3, #1ec9a5); border:none}
-  .btn-danger{background:#2a1010; border:1px solid #512020; color:#ffd5d5}
-  .badges{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+  .btn{cursor:pointer}
+  .btn-ghost{background:#0a0f17; border:1px solid #273046; border-radius:10px; padding:9px 12px}
+  .btn-primary{background:linear-gradient(90deg, #2a86f3, #1ec9a5); border:none; border-radius:10px; padding:9px 12px}
+  .btn-danger{background:#2a1010; border:1px solid #512020; color:#ffd5d5; border-radius:10px; padding:9px 12px}
   .badge{background:#0a0f17; border:1px solid #273046; border-radius:999px; padding:6px 10px; font-variant-numeric: tabular-nums; color:#cfe1ff}
+  .muted{color:var(--muted); font-size:.9rem}
+  .error{color:#ff9c9c; font-size:.85rem; margin-top:6px; display:none}
+  .toast{position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+    background:#101726; color:#def; border:1px solid #273046; border-radius:12px; padding:10px 14px; box-shadow:var(--shadow);
+    z-index:50; opacity:0; pointer-events:none; transition:opacity .2s ease, transform .2s ease}
+  .toast.show{opacity:1; pointer-events:auto; transform:translateX(-50%) translateY(-6px)}
   table{width:100%; border-collapse:collapse; border:1px solid var(--border); border-radius:10px; overflow:hidden}
   thead th{background:#0a0f17; color:#a8bdd6; text-align:left; font-weight:600; padding:8px; border-bottom:1px solid var(--border)}
   tbody td{padding:8px; border-bottom:1px solid #1a2030; vertical-align:top}
   tbody tr:hover{background:#111722}
-  .right{text-align:right} .muted{color:var(--muted); font-size:.9rem}
-  .error{color:#ff9c9c; font-size:.85rem; margin-top:6px; display:none}
-  .toast{position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
-    background:#101726; color:#def; border:1px solid #273046; border-radius:12px; padding:10px 14px; box-shadow:var(--shadow);
-    z-index:10; opacity:0; pointer-events:none; transition:opacity .2s ease, transform .2s ease}
-  .toast.show{opacity:1; pointer-events:auto; transform:translateX(-50%) translateY(-6px)}
-  .mini-help{font-size:.85rem; color:#9fb2cc; margin-top:8px}
-  .filters{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
-  .filters select, .filters input[type="date"]{width:auto}
-  .upcoming-list{max-height:200px; overflow:auto; border:1px dashed #273046; border-radius:10px; padding:8px}
-  .header-right{display:flex; gap:8px; align-items:center}
-  .nav-btn{background:#0a0f17;border:1px solid #273046;border-radius:999px;padding:6px 10px;cursor:pointer}
-  .summary-row{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:8px}
+  input, select, button, textarea{width:100%; padding:9px 10px; border-radius:10px; border:1px solid #273046; background:#0a0f17; color:#e6edf3; font-size:.95rem}
+  input[type="number"]{font-variant-numeric: tabular-nums}
+  textarea{min-height:64px; resize:vertical}
+  .row{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+  .row-3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px}
+  .section{background:linear-gradient(180deg, #0f1522, #0c1018); border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow); margin-top:16px}
+  .section h2{margin:0; padding:14px; border-bottom:1px solid var(--border); font-size:1.05rem; color:#cfe1ff}
+  .section-body{padding:14px}
+  /* Tabs */
+  nav.tabs{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px}
+  nav.tabs button{width:auto}
+  .tabpage{display:none}
+  .tabpage.active{display:block}
+  /* Calendar */
+  .cal-wrap{padding:12px}
+  .cal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+  .cal-cell{min-height:90px;border:1px solid #273046;border-radius:10px;background:#0a0f17;padding:6px;display:flex;flex-direction:column;gap:4px}
+  .cal-cell .date{font-size:.85rem;color:#9fb2cc}
+  .pill-mini{align-self:flex-end; font-size:.8rem; padding:2px 6px}
+  .cal-daylist{font-size:.9rem;line-height:1.2}
+  .cal-daylist div{display:flex;justify-content:space-between;gap:6px}
+  .dim{opacity:.45}
 </style>
 </head>
 <body>
@@ -104,64 +107,76 @@ Next steps (not implemented): category budgets, recurring income, simple bar cha
         <label class="muted">Seed payday:</label>
         <input id="seedPayday" type="date">
       </div>
-      <div class="badges">
+      <div class="flex" style="gap:8px;align-items:center;flex-wrap:wrap">
         <div class="pill"><span class="muted">Income:</span>&nbsp;<strong id="sumIncome">$0.00</strong></div>
         <div class="pill"><span class="muted">Expenses:</span>&nbsp;<strong id="sumExpenses">$0.00</strong></div>
         <div class="pill net"><span>Net:</span>&nbsp;<strong id="sumNet">$0.00</strong></div>
         <div class="pill"><span class="muted">Projected to Payday:</span>&nbsp;<strong id="projectedToPayday">$0.00</strong></div>
         <div class="pill safe" id="safePill"><span>Safe to Spend:</span>&nbsp;<strong id="safeToSpend">$0.00</strong></div>
       </div>
-      <div class="header-right">
-        <button id="exportBtn" class="btn btn-ghost">Export JSON</button>
-        <label for="importFile" class="btn btn-ghost" style="display:inline-flex; align-items:center; gap:8px; cursor:pointer">
+      <div class="flex" style="gap:8px">
+        <button id="exportBtn" class="btn-ghost">Export JSON</button>
+        <label for="importFile" class="btn-ghost" style="display:inline-flex; align-items:center; gap:8px; cursor:pointer">
           Import JSON <input id="importFile" type="file" accept="application/json" style="display:none" />
         </label>
-        <label for="csvFile" class="btn btn-ghost" style="display:inline-flex; align-items:center; gap:8px; cursor:pointer">
+        <label for="csvFile" class="btn-ghost" style="display:inline-flex; align-items:center; gap:8px; cursor:pointer">
           Import CSV <input id="csvFile" type="file" accept=".csv,text/csv" style="display:none" />
         </label>
-        <button id="undoImportBtn" class="btn btn-ghost" title="Undo last CSV import" disabled>Undo Last Import</button>
-        <button id="resetBtn" class="btn btn-danger">⚠ Reset Data</button>
+        <button id="undoImportBtn" class="btn-ghost" title="Undo last CSV import" disabled>Undo Last Import</button>
+        <button id="resetBtn" class="btn-danger">⚠ Reset Data</button>
       </div>
     </div>
 
-    <div id="payPeriodHeader" class="summary-row" style="display:none">
-      <button class="nav-btn" id="prevPeriod" aria-label="Previous pay period">◀</button>
-      <div class="badge" id="periodLabel">Aug 1–Aug 15</div>
-      <button class="nav-btn" id="nextPeriod" aria-label="Next pay period">▶</button>
+    <div id="payPeriodHeader" style="display:none; margin-top:8px; display:flex; gap:8px; align-items:center">
+      <button class="btn-ghost" id="prevPeriod" style="width:auto">◀</button>
+      <div class="badge" id="periodLabel">—</div>
+      <button class="btn-ghost" id="nextPeriod" style="width:auto">▶</button>
     </div>
 
-    <div id="weeklySummary" class="summary-row" style="display:none">
+    <div id="weeklySummary" style="display:none; margin-top:8px; display:flex; gap:8px; flex-wrap:wrap">
       <div class="badge">Spent this week: <strong id="wkSpent">$0.00</strong></div>
       <div class="badge">Avg/day: <strong id="wkAvg">$0.00</strong></div>
       <div class="badge">Projected: <strong id="wkProj">$0.00</strong></div>
       <div class="badge" id="wkTrend">vs 4-wk avg: <strong>—</strong></div>
     </div>
+
+    <nav class="tabs">
+      <button class="btn-ghost" data-tab="home">Home</button>
+      <button class="btn-ghost" data-tab="tx">Transactions</button>
+      <button class="btn-ghost" data-tab="cal">Calendar</button>
+      <button class="btn-ghost" data-tab="tools">Tools</button>
+      <button class="btn-ghost" data-tab="tpl">Templates</button>
+    </nav>
   </header>
 
-  <section class="card" style="margin-top:12px">
-    <h2>Upcoming (next 7 days)</h2>
-    <div class="section-body">
-      <div class="badges" style="margin-bottom:8px">
-        <div class="badge">Bills: <strong id="upBills">$0.00</strong></div>
-        <div class="badge">Income: <strong id="upIncome">$0.00</strong></div>
-        <div class="badge">Net effect: <strong id="upNet">$0.00</strong></div>
-        <div class="badge">Next payday: <strong id="nextPaydayLabel">—</strong></div>
+  <!-- HOME -->
+  <section id="tab-home" class="tabpage active">
+    <div class="section">
+      <h2>Upcoming (next 7 days)</h2>
+      <div class="section-body">
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px">
+          <div class="badge">Bills: <strong id="upBills">$0.00</strong></div>
+          <div class="badge">Income: <strong id="upIncome">$0.00</strong></div>
+          <div class="badge">Net effect: <strong id="upNet">$0.00</strong></div>
+          <div class="badge">Next payday: <strong id="nextPaydayLabel">—</strong></div>
+        </div>
+        <div class="upcoming-list" id="upcomingList" aria-live="polite"></div>
       </div>
-      <div class="upcoming-list" id="upcomingList" aria-live="polite"></div>
     </div>
   </section>
 
-  <div class="grid">
-    <section class="card" aria-labelledby="incomeHeading">
-      <h2 id="incomeHeading">Income</h2>
+  <!-- TRANSACTIONS -->
+  <section id="tab-tx" class="tabpage">
+    <div class="section">
+      <h2>Income</h2>
       <div class="section-body">
         <form id="incomeForm" novalidate>
-          <fieldset>
-            <legend>Add / Edit Income</legend>
+          <fieldset style="border:1px dashed #273046; padding:12px; border-radius:12px; margin:0 0 12px">
+            <legend class="muted">Add / Edit Income</legend>
             <div class="row">
               <div>
                 <label for="incomeDate">Date</label>
-                <input id="incomeDate" name="date" type="date" required />
+                <input id="incomeDate" type="date" required />
                 <div style="display:flex; gap:6px; align-items:center; margin-top:6px">
                   <input id="incomeScheduled" type="checkbox" />
                   <label for="incomeScheduled" class="muted">Scheduled (future)</label>
@@ -169,45 +184,44 @@ Next steps (not implemented): category budgets, recurring income, simple bar cha
               </div>
               <div>
                 <label for="incomeSource">Source</label>
-                <input id="incomeSource" name="source" type="text" placeholder="Paycheck, Refund…" required />
+                <input id="incomeSource" type="text" placeholder="Paycheck, Refund…" required />
               </div>
             </div>
             <div class="row">
               <div>
                 <label for="incomeAmount">Amount</label>
-                <input id="incomeAmount" name="amount" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0.00" required />
+                <input id="incomeAmount" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0.00" required />
                 <div id="incomeAmountErr" class="error">Enter a valid non-negative amount.</div>
               </div>
               <div>
                 <label>&nbsp;</label>
-                <div class="actions">
-                  <button class="btn btn-primary" id="incomeSubmitBtn" type="submit">Add Income</button>
-                  <button class="btn btn-ghost" id="incomeCancelEdit" type="button" style="display:none">Cancel Edit</button>
+                <div style="display:flex; gap:10px">
+                  <button class="btn-primary" id="incomeSubmitBtn" type="submit" style="width:auto">Add Income</button>
+                  <button class="btn-ghost" id="incomeCancelEdit" type="button" style="display:none;width:auto">Cancel Edit</button>
                 </div>
               </div>
             </div>
           </fieldset>
         </form>
-
         <div style="overflow:auto">
-          <table aria-describedby="incomeHeading">
+          <table>
             <thead><tr><th>Date</th><th>Source</th><th>Scheduled</th><th class="right">Amount</th><th class="right">Actions</th></tr></thead>
             <tbody id="incomeTbody"></tbody>
           </table>
         </div>
       </div>
-    </section>
+    </div>
 
-    <section class="card" aria-labelledby="expenseHeading">
-      <h2 id="expenseHeading">Expenses</h2>
+    <div class="section">
+      <h2>Expenses</h2>
       <div class="section-body">
         <form id="expenseForm" novalidate>
-          <fieldset>
-            <legend>Add / Edit Expense</legend>
+          <fieldset style="border:1px dashed #273046; padding:12px; border-radius:12px; margin:0 0 12px">
+            <legend class="muted">Add / Edit Expense</legend>
             <div class="row-3">
               <div>
                 <label for="expenseDate">Date</label>
-                <input id="expenseDate" name="date" type="date" required />
+                <input id="expenseDate" type="date" required />
                 <div style="display:flex; gap:6px; align-items:center; margin-top:6px">
                   <input id="expenseScheduled" type="checkbox" />
                   <label for="expenseScheduled" class="muted">Scheduled (future)</label>
@@ -215,36 +229,30 @@ Next steps (not implemented): category budgets, recurring income, simple bar cha
               </div>
               <div>
                 <label for="expenseCategory">Category</label>
-                <select id="expenseCategory" name="category">
-                  <option value="Housing">Housing</option>
-                  <option value="Utilities">Utilities</option>
-                  <option value="Food">Food</option>
-                  <option value="Transport">Transport</option>
-                  <option value="Debt">Debt</option>
-                  <option value="Health">Health</option>
-                  <option value="Entertainment">Entertainment</option>
-                  <option value="Savings">Savings</option>
-                  <option value="Other">Other</option>
+                <select id="expenseCategory">
+                  <option>Housing</option><option>Utilities</option><option>Food</option>
+                  <option>Transport</option><option>Debt</option><option>Health</option>
+                  <option>Entertainment</option><option>Savings</option><option>Other</option>
                 </select>
-                <div class="mini-help">Or type a custom category:</div>
+                <div class="muted" style="font-size:.85rem;margin-top:3px">Or type a custom category:</div>
                 <input id="expenseCategoryCustom" type="text" placeholder="Custom category (optional)" />
               </div>
               <div>
                 <label for="expenseAmount">Amount</label>
-                <input id="expenseAmount" name="amount" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0.00" required />
+                <input id="expenseAmount" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0.00" required />
                 <div id="expenseAmountErr" class="error">Enter a valid non-negative amount.</div>
               </div>
             </div>
             <div class="row">
               <div>
                 <label for="expenseNotes">Notes (optional)</label>
-                <textarea id="expenseNotes" name="notes" placeholder="Short note…"></textarea>
+                <textarea id="expenseNotes" placeholder="Short note…"></textarea>
               </div>
               <div>
                 <label>&nbsp;</label>
-                <div class="actions">
-                  <button class="btn btn-primary" id="expenseSubmitBtn" type="submit">Add Expense</button>
-                  <button class="btn btn-ghost" id="expenseCancelEdit" type="button" style="display:none">Cancel Edit</button>
+                <div style="display:flex; gap:10px">
+                  <button class="btn-primary" id="expenseSubmitBtn" type="submit" style="width:auto">Add Expense</button>
+                  <button class="btn-ghost" id="expenseCancelEdit" type="button" style="display:none;width:auto">Cancel Edit</button>
                 </div>
               </div>
             </div>
@@ -252,39 +260,181 @@ Next steps (not implemented): category budgets, recurring income, simple bar cha
         </form>
 
         <div style="overflow:auto">
-          <table aria-describedby="expenseHeading">
+          <table>
             <thead><tr><th>Date</th><th>Category</th><th>Scheduled</th><th class="right">Amount</th><th>Notes</th><th class="right">Actions</th></tr></thead>
             <tbody id="expenseTbody"></tbody>
           </table>
         </div>
       </div>
-    </section>
+    </div>
+  </section>
 
-    <aside class="card" aria-labelledby="toolsHeading">
-      <h2 id="toolsHeading">What-If & Calculator</h2>
+  <!-- CALENDAR -->
+  <section id="tab-cal" class="tabpage">
+    <div class="section">
+      <h2>Calendar (Bills Only)</h2>
+      <div class="section-body cal-wrap">
+        <div class="cal-header">
+          <button id="calPrev" class="btn-ghost" style="width:auto">◀</button>
+          <div style="display:flex;gap:8px;align-items:center">
+            <div class="badge" id="calLabel">—</div>
+            <div class="badge">Month total bills: <strong id="calMonthTotal">$0.00</strong></div>
+          </div>
+          <button id="calNext" class="btn-ghost" style="width:auto">▶</button>
+        </div>
+        <div class="muted" style="margin-bottom:6px">Sun · Mon · Tue · Wed · Thu · Fri · Sat</div>
+        <div class="cal-grid" id="calGrid"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TOOLS -->
+  <section id="tab-tools" class="tabpage">
+    <div class="section">
+      <h2>What-If & Calculator</h2>
       <div class="section-body">
-        <div>
+        <div style="max-width:420px">
           <label for="whatIfNumber">What-If amount</label>
           <input id="whatIfNumber" type="number" min="0" step="1" inputmode="decimal" />
-        </div>
-        <div class="mini-help">Projected Balance (Net − What-If): <strong id="projectedBalance">$0.00</strong></div>
-        <hr style="border:none; border-top:1px solid var(--border); margin:12px 0" />
-        <div>
+          <div class="muted" style="margin-top:6px">Projected Balance (Net − What-If): <strong id="projectedBalance">$0.00</strong></div>
+          <hr style="border:none;border-top:1px solid #273046;margin:12px 0">
           <label for="calcAmount">Quick Calculator: Planned purchase</label>
           <input id="calcAmount" type="number" min="0" step="1" inputmode="decimal" placeholder="e.g., 250" />
+          <div class="muted" style="margin-top:6px">New Balance (Net − Planned): <strong id="calcResult">$0.00</strong></div>
         </div>
-        <div class="mini-help">New Balance (Net − Planned): <strong id="calcResult">$0.00</strong></div>
       </div>
-    </aside>
-  </div>
+    </div>
+
+    <div class="section">
+      <h2>Import / Export</h2>
+      <div class="section-body">
+        <div style="display:flex; gap:8px; flex-wrap:wrap">
+          <button id="exportBtn2" class="btn-ghost" style="width:auto">Export JSON</button>
+          <label for="importFile2" class="btn-ghost" style="display:inline-flex; align-items:center; gap:8px; cursor:pointer; width:auto">
+            Import JSON <input id="importFile2" type="file" accept="application/json" style="display:none" />
+          </label>
+          <label for="csvFile2" class="btn-ghost" style="display:inline-flex; align-items:center; gap:8px; cursor:pointer; width:auto">
+            Import CSV <input id="csvFile2" type="file" accept=".csv,text/csv" style="display:none" />
+          </label>
+          <button id="undoImportBtn2" class="btn-ghost" style="width:auto" title="Undo last CSV import" disabled>Undo Last Import</button>
+          <button id="resetBtn2" class="btn-danger" style="width:auto">⚠ Reset Data</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>E2EE Cloud Sync (GitHub Gist)</h2>
+      <div class="section-body" style="max-width:820px">
+        <div class="muted" style="margin-bottom:8px">All data is encrypted locally with your passphrase; only ciphertext is stored in your Gist. You must provide a GitHub token with <code>gist</code> scope.</div>
+        <div class="row-3">
+          <div>
+            <label for="syncId">Sync ID (filename)</label>
+            <input id="syncId" placeholder="e.g., my-budget-sync" />
+          </div>
+          <div>
+            <label for="syncPass">Passphrase (keep safe)</label>
+            <input id="syncPass" type="password" placeholder="Your encryption passphrase" />
+          </div>
+          <div>
+            <label for="gistToken">GitHub Gist Token</label>
+            <input id="gistToken" type="password" placeholder="ghp_..." />
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label for="gistId">Gist ID (leave blank to create)</label>
+            <input id="gistId" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" />
+          </div>
+          <div>
+            <label>&nbsp;</label>
+            <div style="display:flex; gap:8px">
+              <button id="syncLink" class="btn-primary" style="width:auto">Link / Update</button>
+              <button id="syncNow" class="btn-ghost" style="width:auto">Sync now</button>
+              <button id="syncUnlink" class="btn-ghost" style="width:auto">Unlink (keep local)</button>
+            </div>
+          </div>
+        </div>
+        <div class="muted" id="syncStatus" style="margin-top:6px">Status: Not linked</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TEMPLATES -->
+  <section id="tab-tpl" class="tabpage">
+    <div class="section">
+      <h2>Recurring Expense Templates</h2>
+      <div class="section-body">
+        <form id="tplForm">
+          <div class="row-3">
+            <div>
+              <label for="tplLabel">Label / Category</label>
+              <input id="tplLabel" placeholder="e.g., Rent" />
+            </div>
+            <div>
+              <label for="tplAmount">Amount</label>
+              <input id="tplAmount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00" />
+            </div>
+            <div>
+              <label for="tplFreq">Frequency</label>
+              <select id="tplFreq">
+                <option value="weekly">Weekly</option>
+                <option value="biweekly">Biweekly</option>
+                <option value="semimonthly">Semi-monthly (1st & 15th)</option>
+                <option value="monthly">Monthly</option>
+              </select>
+            </div>
+          </div>
+          <div class="row-3" id="tplAnchors">
+            <div data-anchor="weekly">
+              <label for="tplWeekday">Weekday</label>
+              <select id="tplWeekday">
+                <option value="0">Sunday</option><option value="1">Monday</option><option value="2">Tuesday</option>
+                <option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option>
+              </select>
+            </div>
+            <div data-anchor="biweekly">
+              <label for="tplSeedDate">Seed date (pattern anchor)</label>
+              <input id="tplSeedDate" type="date" />
+            </div>
+            <div data-anchor="monthly">
+              <label for="tplMonthDay">Day of month</label>
+              <input id="tplMonthDay" type="number" min="1" max="31" placeholder="1..31" />
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label for="tplStart">Start date</label>
+              <input id="tplStart" type="date" />
+            </div>
+            <div>
+              <label for="tplNotes">Notes (optional)</label>
+              <input id="tplNotes" placeholder="e.g., auto-pay" />
+            </div>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center; margin-top:8px">
+            <label class="muted" for="tplActive">Active</label>
+            <input id="tplActive" type="checkbox" checked style="width:auto" />
+            <button id="tplSave" class="btn-primary" style="width:auto">Save Template</button>
+            <button id="tplCancel" type="button" class="btn-ghost" style="width:auto; display:none">Cancel</button>
+          </div>
+          <div id="tplErr" class="error" style="display:none">Please fill label and a valid amount.</div>
+        </form>
+
+        <div class="section" style="margin-top:12px">
+          <h2 style="border-bottom:none">Templates</h2>
+          <div class="section-body" id="tplList" class="muted">No templates yet.</div>
+        </div>
+      </div>
+    </div>
+  </section>
 </div>
 
-<!-- CSV Mapping Modal -->
-<div id="csvModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:20; align-items:center; justify-content:center;">
-  <div class="card" style="width:min(980px, 96%); max-height:90%; overflow:auto;">
+<!-- CSV Modal -->
+<div id="csvModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:40; align-items:center; justify-content:center;">
+  <div class="section" style="width:min(980px, 96%); max-height:90%; overflow:auto;">
     <h2 style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;">
       Import CSV
-      <button id="csvClose" class="btn btn-ghost" style="width:auto">Close</button>
+      <button id="csvClose" class="btn-ghost" style="width:auto">Close</button>
     </h2>
     <div class="section-body">
       <div class="row-3">
@@ -312,10 +462,7 @@ Next steps (not implemented): category budgets, recurring income, simple bar cha
         </div>
         <div>
           <label for="invertSign">Invert sign</label>
-          <select id="invertSign">
-            <option value="no">No</option>
-            <option value="yes">Yes</option>
-          </select>
+          <select id="invertSign"><option value="no">No</option><option value="yes">Yes</option></select>
         </div>
       </div>
       <div class="row-3" id="amountRowDC" style="margin-top:8px; display:none">
@@ -329,22 +476,17 @@ Next steps (not implemented): category budgets, recurring income, simple bar cha
         </div>
         <div>
           <label for="treatBlankAsZero">Treat blank as 0</label>
-          <select id="treatBlankAsZero">
-            <option value="yes">Yes</option>
-            <option value="no">No</option>
-          </select>
+          <select id="treatBlankAsZero"><option value="yes">Yes</option><option value="no">No</option></select>
         </div>
       </div>
 
-      <div class="mini-help" style="margin-top:6px">
-        Tip: We’ll skip rows where Description contains “Beginning Balance”.
-      </div>
+      <div class="muted" style="margin-top:6px">Rows with Description containing “Beginning Balance” are skipped.</div>
 
       <div style="margin:10px 0">
-        <button id="csvImportBtn" class="btn btn-primary" style="width:auto">Import</button>
+        <button id="csvImportBtn" class="btn-primary" style="width:auto">Import</button>
       </div>
 
-      <div style="overflow:auto; border:1px solid var(--border); border-radius:10px">
+      <div style="overflow:auto; border:1px solid #273046; border-radius:10px">
         <table>
           <thead><tr id="csvHead"></tr></thead>
           <tbody id="csvBody"></tbody>
@@ -371,122 +513,168 @@ function parseAmount(v){if(typeof v==='number')return v;if(!v)return NaN;v=Strin
 function uid(){return Math.random().toString(36).slice(2)+Date.now().toString(36)}
 function todayStr(){return new Date().toISOString().slice(0,10)}
 function toISO(d){return new Date(d).toISOString().slice(0,10)}
-function startOfWeek(d){const dt=new Date(d);const dow=(dt.getDay()+6)%7;dt.setDate(dt.getDate()-dow);dt.setHours(0,0,0,0);return dt}
-function endOfWeek(d){const s=startOfWeek(d);const e=new Date(s);e.setDate(s.getDate()+6);e.setHours(23,59,59,999);return e}
 function addDays(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x}
+function startOfWeekSunday(d){const dt=new Date(d);const dow=dt.getDay();dt.setDate(dt.getDate()-dow);dt.setHours(0,0,0,0);return dt}
+function endOfWeekSunday(d){const s=startOfWeekSunday(d);const e=new Date(s);e.setDate(s.getDate()+6);e.setHours(23,59,59,999);return e}
 function clipDOM(year, month, day){const last=new Date(year, month+1, 0).getDate(); return new Date(year, month, Math.min(day,last));}
 function isFuture(iso){const d=new Date(iso);const t=new Date();t.setHours(0,0,0,0);return d>t}
 function inRange(iso,start,end){try{const d=new Date(iso);return d>=start && d<=end}catch{return false}}
 function escapeHtml(s){return String(s).replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]))}
 
 let state = loadState();
-// Migrations
-if (!state.settings) state.settings = { payFreq:'biweekly', seedPayday: toISO(addDays(new Date(), 14)) };
+// Migrations / defaults
+state.settings ||= { payFreq:'biweekly', seedPayday: toISO(addDays(new Date(), 14)) };
 if (!('payPeriodOffset' in state)) state.payPeriodOffset = 0;
-if (!state.templates) state.templates = [];           // recurring expense templates
-if (!state.lastImportBatch) state.lastImportBatch = null;
+state.templates ||= [];
+state.lastImportBatch ||= null;
+state.calMonth ||= toISO(new Date()).slice(0,7); // YYYY-MM
+state.sync ||= { enabled:false };
 saveState();
 
 const dom = {
+  // filters / header
   filterRange: byId('filterRange'), customStart: byId('customStart'), customEnd: byId('customEnd'), toSpan: byId('toSpan'),
   payFreq: byId('payFreq'), seedPayday: byId('seedPayday'),
   sumIncome: byId('sumIncome'), sumExpenses: byId('sumExpenses'), sumNet: byId('sumNet'),
   projectedToPayday: byId('projectedToPayday'), nextPaydayLabel: byId('nextPaydayLabel'),
-  upBills: byId('upBills'), upIncome: byId('upIncome'), upNet: byId('upNet'), upcomingList: byId('upcomingList'),
-  safePill: byId('safePill'), safeToSpend: byId('safeToSpend'),
   payPeriodHeader: byId('payPeriodHeader'), periodLabel: byId('periodLabel'), prevPeriod: byId('prevPeriod'), nextPeriod: byId('nextPeriod'),
   weeklySummary: byId('weeklySummary'), wkSpent: byId('wkSpent'), wkAvg: byId('wkAvg'), wkProj: byId('wkProj'), wkTrend: byId('wkTrend'),
+  // totals/pills
+  safePill: byId('safePill'), safeToSpend: byId('safeToSpend'),
+  // upcoming (Home)
+  upBills: byId('upBills'), upIncome: byId('upIncome'), upNet: byId('upNet'), upcomingList: byId('upcomingList'),
+  // tx forms/tables
   incomeForm: byId('incomeForm'), incomeDate: byId('incomeDate'), incomeSource: byId('incomeSource'), incomeAmount: byId('incomeAmount'), incomeAmountErr: byId('incomeAmountErr'), incomeScheduled: byId('incomeScheduled'), incomeSubmitBtn: byId('incomeSubmitBtn'), incomeCancelEdit: byId('incomeCancelEdit'),
   expenseForm: byId('expenseForm'), expenseDate: byId('expenseDate'), expenseCategory: byId('expenseCategory'), expenseCategoryCustom: byId('expenseCategoryCustom'), expenseAmount: byId('expenseAmount'), expenseAmountErr: byId('expenseAmountErr'), expenseNotes: byId('expenseNotes'), expenseScheduled: byId('expenseScheduled'), expenseSubmitBtn: byId('expenseSubmitBtn'), expenseCancelEdit: byId('expenseCancelEdit'),
   incomeTbody: byId('incomeTbody'), expenseTbody: byId('expenseTbody'),
-  exportBtn: byId('exportBtn'), importFile: byId('importFile'),
-  csvFile: byId('csvFile'), csvModal: byId('csvModal'), csvClose: byId('csvClose'),
+  // CSV/JSON
+  exportBtn: byId('exportBtn'), importFile: byId('importFile'), csvFile: byId('csvFile'), undoImportBtn: byId('undoImportBtn'), resetBtn: byId('resetBtn'),
+  exportBtn2: byId('exportBtn2'), importFile2: byId('importFile2'), csvFile2: byId('csvFile2'), undoImportBtn2: byId('undoImportBtn2'), resetBtn2: byId('resetBtn2'),
+  // CSV modal
+  csvModal: byId('csvModal'), csvClose: byId('csvClose'),
   mapDate: byId('mapDate'), mapDesc: byId('mapDesc'), amountMode: byId('amountMode'), mapAmount: byId('mapAmount'), invertSign: byId('invertSign'), mapDebit: byId('mapDebit'), mapCredit: byId('mapCredit'), treatBlankAsZero: byId('treatBlankAsZero'),
   csvHead: byId('csvHead'), csvBody: byId('csvBody'), csvImportBtn: byId('csvImportBtn'),
-  undoImportBtn: byId('undoImportBtn'),
-  resetBtn: byId('resetBtn'),
-  whatIfNumber: byId('whatIfNumber'), projectedBalance: byId('projectedBalance'), calcAmount: byId('calcAmount'), calcResult: byId('calcResult')
+  // tools calc
+  whatIfNumber: byId('whatIfNumber'), projectedBalance: byId('projectedBalance'), calcAmount: byId('calcAmount'), calcResult: byId('calcResult'),
+  // tabs
+  tabs: Array.from(document.querySelectorAll('nav.tabs [data-tab]')),
+  pages: { home:byId('tab-home'), tx:byId('tab-tx'), cal:byId('tab-cal'), tools:byId('tab-tools'), tpl:byId('tab-tpl') },
+  // Calendar
+  calPrev: byId('calPrev'), calNext: byId('calNext'), calLabel: byId('calLabel'), calGrid: byId('calGrid'), calMonthTotal: byId('calMonthTotal'),
+  // Templates
+  tplForm: byId('tplForm'), tplLabel: byId('tplLabel'), tplAmount: byId('tplAmount'), tplFreq: byId('tplFreq'), tplWeekday: byId('tplWeekday'), tplSeedDate: byId('tplSeedDate'), tplMonthDay: byId('tplMonthDay'),
+  tplStart: byId('tplStart'), tplNotes: byId('tplNotes'), tplActive: byId('tplActive'),
+  tplSave: byId('tplSave'), tplCancel: byId('tplCancel'), tplErr: byId('tplErr'), tplList: byId('tplList'),
+  // Sync
+  syncId: byId('syncId'), syncPass: byId('syncPass'), gistToken: byId('gistToken'), gistId: byId('gistId'),
+  syncLink: byId('syncLink'), syncNow: byId('syncNow'), syncUnlink: byId('syncUnlink'), syncStatus: byId('syncStatus')
 };
 function byId(id){return document.getElementById(id)}
 
-function loadState(){try{const raw=localStorage.getItem(LS_KEY); if(!raw) return seed(); const obj=JSON.parse(raw); return obj;}catch{return seed()}}
+// ---------- State load/save/seed ----------
+function loadState(){try{const raw=localStorage.getItem(LS_KEY); if(!raw) return seed(); return JSON.parse(raw);}catch{return seed()}}
 function saveState(){localStorage.setItem(LS_KEY, JSON.stringify(state))}
 function seed(){
-  const s = { version:'1.2.0', settings:{payFreq:'biweekly', seedPayday: toISO(addDays(new Date(), 14))}, payPeriodOffset:0, incomes:[], expenses:[], templates:[], lastImportBatch:null };
-  // tiny seed (first run only)
-  s.incomes.push({id:uid(), date:toISO(addDays(new Date(), -10)), source:'Paycheck', amount:3200, scheduled:false});
-  s.incomes.push({id:uid(), date:toISO(addDays(new Date(), -3)), source:'Freelance', amount:450, scheduled:false});
-  s.expenses.push({id:uid(), date:toISO(addDays(new Date(), -9)), category:'Housing', amount:1200, notes:'Rent', scheduled:false});
-  s.expenses.push({id:uid(), date:toISO(addDays(new Date(), -2)), category:'Food', amount:245.37, notes:'Groceries', scheduled:false});
+  const s = { version:'1.3.0',
+    settings:{payFreq:'biweekly', seedPayday: toISO(addDays(new Date(), 14))},
+    payPeriodOffset:0, incomes:[], expenses:[], templates:[], lastImportBatch:null,
+    calMonth: toISO(new Date()).slice(0,7), sync:{enabled:false}
+  };
+  s.incomes.push({id:uid(), date:toISO(addDays(new Date(), -10)), source:'Paycheck', amount:3200, scheduled:false, u:Date.now()-10});
+  s.incomes.push({id:uid(), date:toISO(addDays(new Date(), -3)), source:'Freelance', amount:450, scheduled:false, u:Date.now()-3});
+  s.expenses.push({id:uid(), date:toISO(addDays(new Date(), -9)), category:'Housing', amount:1200, notes:'Rent', scheduled:false, u:Date.now()-9});
+  s.expenses.push({id:uid(), date:toISO(addDays(new Date(), -2)), category:'Food', amount:245.37, notes:'Groceries', scheduled:false, u:Date.now()-2});
   return s;
 }
 
-// ---- Pay period helpers ----
-function nextPaydayFromSettings(offset=0){
+// ---------- Pay period helpers (with semimonthly fix) ----------
+function nextPaydayFromSettings(){
   const freq = state.settings.payFreq||'biweekly';
-  const seed = new Date(state.settings.seedPayday||todayStr());
   const today = new Date(); today.setHours(0,0,0,0);
-  let next = new Date(seed);
-  function advance(n){ next.setDate(next.getDate()+n); }
-  if (freq==='weekly'){
-    while (next <= today) advance(7);
-    // apply offset
-    advance(7*offset);
-  } else if (freq==='biweekly'){
-    while (next <= today) advance(14);
-    advance(14*offset);
-  } else if (freq==='semimonthly'){
-    // 1st and 15th windows
-    const base = new Date(today);
-    base.setMonth(base.getMonth(), 1); // beginning of month
-    let periods = [];
-    for (let m=-1; m<=2; m++){
-      const y=base.getFullYear(), mo=base.getMonth()+m;
-      periods.push(new Date(y,mo,1));
-      periods.push(new Date(y,mo,15));
-    }
-    next = periods.find(d=>{const dd=new Date(d); dd.setHours(0,0,0,0); return dd>=today}) || periods[periods.length-1];
-    // offset by half-month increments
-    const stepDays = 14; // approx, used only to move label; exact range calculated below
-    next.setDate(next.getDate()+offset*stepDays);
-  } else if (freq==='monthly'){
-    const day = new Date(state.settings.seedPayday||todayStr()).getDate();
-    next = new Date(today.getFullYear(), today.getMonth(), day);
-    if (next <= today) next = new Date(today.getFullYear(), today.getMonth()+1, day);
-    next.setMonth(next.getMonth()+offset);
+  if (freq==='weekly' || freq==='biweekly'){
+    const seed = new Date(state.settings.seedPayday||todayStr());
+    const step = (freq==='weekly')?7:14;
+    let next = new Date(seed); next.setHours(0,0,0,0);
+    while (next <= today) next.setDate(next.getDate()+step);
+    return next;
   }
+  if (freq==='monthly'){
+    const day = new Date(state.settings.seedPayday||todayStr()).getDate();
+    let next = new Date(today.getFullYear(), today.getMonth(), day);
+    if (next <= today) next = new Date(today.getFullYear(), today.getMonth()+1, day);
+    next.setHours(0,0,0,0);
+    return next;
+  }
+  // semimonthly: paydays on 1 & 15
+  const y=today.getFullYear(), m=today.getMonth(), d=today.getDate();
+  let next;
+  if (d <= 15) next = new Date(y,m,15);
+  else next = new Date(y,m+1,1);
   next.setHours(0,0,0,0);
   return next;
 }
 function currentPayPeriodRange(){
   const freq = state.settings.payFreq||'biweekly';
-  const next = nextPaydayFromSettings(state.payPeriodOffset||0);
-  const end = new Date(next); end.setHours(23,59,59,999);
-  const start = new Date(next);
-  if (freq==='weekly') start.setDate(start.getDate()-7);
-  else if (freq==='biweekly') start.setDate(start.getDate()-14);
-  else if (freq==='semimonthly'){
-    const d = new Date(next);
-    const y=d.getFullYear(), m=d.getMonth();
-    // Determine previous boundary (1st or 15th) relative to 'next'
-    if (d.getDate() <= 15) start.setFullYear(y, m-1, 15); else start.setFullYear(y, m, 1);
-  } else if (freq==='monthly'){
-    start.setMonth(start.getMonth()-1);
+  const offset = state.payPeriodOffset||0;
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  if (freq==='weekly'){
+    const baseStart = startOfWeekSunday(today);
+    const start = addDays(baseStart, offset*7);
+    const end = addDays(start,6); end.setHours(23,59,59,999);
+    return {start, end};
   }
-  start.setHours(0,0,0,0);
-  return {start, end};
+  if (freq==='biweekly'){
+    const seed = new Date(state.settings.seedPayday||todayStr());
+    let next = new Date(seed); next.setHours(0,0,0,0);
+    while (next <= today) next = addDays(next,14);
+    const end = addDays(next, offset*14); end.setHours(23,59,59,999);
+    const start = addDays(end, -13); start.setHours(0,0,0,0);
+    return {start, end};
+  }
+  if (freq==='monthly'){
+    const ref = new Date(today.getFullYear(), today.getMonth()+offset+1, 0); // last day of target month
+    const end = new Date(ref.getFullYear(), ref.getMonth(), new Date(state.settings.seedPayday||todayStr()).getDate());
+    // end is payday in target month; start is previous month same day +1
+    let start = new Date(end); start.setMonth(start.getMonth()-1);
+    start.setHours(0,0,0,0); end.setHours(23,59,59,999);
+    return {start, end};
+  }
+  // semimonthly fixed windows: [1..15], [16..EOM]
+  function semimFor(date){
+    const y=date.getFullYear(), m=date.getMonth(), d=date.getDate();
+    if (d<=15) return {start:new Date(y,m,1), end:new Date(y,m,15,23,59,59,999)};
+    const eom=new Date(y,m+1,0,23,59,59,999);
+    return {start:new Date(y,m,16), end:eom};
+  }
+  // apply offset in half-month increments
+  let ref = new Date(today);
+  // move by offset half-months
+  let cur = semimFor(ref);
+  if (offset!==0){
+    let steps = Math.abs(offset);
+    let s=cur.start;
+    while (steps--){
+      // move start to next window start
+      if (s.getDate()===1){ s = new Date(s.getFullYear(), s.getMonth(), 16); }
+      else { s = new Date(s.getFullYear(), s.getMonth()+1, 1); }
+    }
+    cur = semimFor(addDays(s,1));
+  }
+  cur.start.setHours(0,0,0,0);
+  return cur;
 }
 function formatRangeShort(start,end){
   const months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   return `${months[start.getMonth()]} ${start.getDate()}–${months[end.getMonth()]} ${end.getDate()}`;
 }
 
-// ---- Filtering ----
+// ---------- Filters ----------
 function getActiveRange(){
   const now = new Date();
   const sel = dom.filterRange.value;
-  if (sel==='thisWeek'){ return {start: startOfWeek(now), end: endOfWeek(now)}; }
-  if (sel==='lastWeek'){ const s = addDays(startOfWeek(now), -7); return {start: s, end: addDays(endOfWeek(now), -7)}; }
+  if (sel==='thisWeek'){ return {start: startOfWeekSunday(now), end: endOfWeekSunday(now)}; }
+  if (sel==='lastWeek'){ const s = addDays(startOfWeekSunday(now), -7); return {start: s, end: addDays(endOfWeekSunday(now), -7)}; }
   if (sel==='payPeriod'){ return currentPayPeriodRange(); }
   if (sel==='custom'){
     const s = dom.customStart.value ? new Date(dom.customStart.value) : new Date('1970-01-01');
@@ -494,11 +682,10 @@ function getActiveRange(){
     e.setHours(23,59,59,999);
     return {start:s, end:e};
   }
-  // all
   return {start: new Date('1970-01-01'), end: new Date('2999-12-31')};
 }
 
-// ---- Calculations ----
+// ---------- Calculations ----------
 function totalsForRange(range){
   const today = new Date(); today.setHours(0,0,0,0);
   const inc = state.incomes.filter(x=>inRange(x.date, range.start, range.end) && !(x.scheduled && isFuture(x.date)))
@@ -541,12 +728,11 @@ function computeSafeToSpend(){
 }
 function weeklySummaryCalc(){
   const now = new Date(); now.setHours(0,0,0,0);
-  const s = startOfWeek(now), e=endOfWeek(now);
+  const s = startOfWeekSunday(now), e=endOfWeekSunday(now);
   const daysElapsed = Math.max(1, Math.min(7, Math.floor((now - s)/86400000)+1));
   const spent = state.expenses.filter(x=>!x.scheduled && inRange(x.date, s, e)).reduce((a,b)=>a+Number(b.amount||0),0);
   const avg = spent / daysElapsed;
   const proj = avg * 7;
-  // 4 prior full weeks
   let sumPrior=0; for (let i=1;i<=4;i++){ const ps=addDays(s,-7*i), pe=addDays(e,-7*i);
     sumPrior += state.expenses.filter(x=>!x.scheduled && inRange(x.date, ps, pe)).reduce((a,b)=>a+Number(b.amount||0),0);
   }
@@ -554,51 +740,44 @@ function weeklySummaryCalc(){
   return {spent, avg, proj, avg4};
 }
 
-// ---- Recurring expense templates ----
+// ---------- Templates engine ----------
 function generateTemplateInstances(){
   const windowDays = 60;
   const start = new Date(); start.setHours(0,0,0,0);
   const end = addDays(start, windowDays);
-  // remove future instances for inactive templates or out-of-window ones
+  // prune future instances outside window or for inactive templates
   state.expenses = state.expenses.filter(x=>{
     if (!x.scheduled || !x.templateId) return true;
     const tpl = state.templates.find(t=>t.id===x.templateId);
     if (!tpl || tpl.active===false) return false;
     const d=new Date(x.date);
-    return d>=start && d<=end; // keep only within window
+    return d>=start && d<=end;
   });
-  // for each active template, generate dates within window if missing
+  // generate
   for (const t of state.templates){
     if (t.active===false) continue;
-    let dates=[];
-    const begin = new Date(start);
-    const startDate = new Date(t.startDate||start);
-    const genStart = begin>startDate? begin : startDate;
-    const addInst = (d)=>{
+    const genStart = new Date(Math.max(start, new Date(t.startDate||start)));
+    const pushInst = (d)=>{
       const iso=toISO(d);
-      const exists = state.expenses.some(x=>x.scheduled && x.templateId===t.id && x.date===iso);
-      if (!exists) state.expenses.push({id:uid(), date:iso, category:t.label||'Bill', amount:Number(t.amount||0), notes:t.notes||'', scheduled:true, templateId:t.id});
+      if (!state.expenses.some(x=>x.scheduled && x.templateId===t.id && x.date===iso)){
+        state.expenses.push({id:uid(), date:iso, category:t.label||'Bill', amount:Number(t.amount||0), notes:t.notes||'',
+          scheduled:true, templateId:t.id, u:Date.now()});
+      }
     };
     if (t.freq==='weekly'){
-      // align to chosen weekday
-      let d=new Date(genStart);
-      while (d.getDay()!== (t.weekday??5)) d.setDate(d.getDate()+1);
-      while (d<=end){ addInst(d); d=addDays(d,7); }
+      let d=new Date(genStart); while (d.getDay()!== (t.weekday??0)) d.setDate(d.getDate()+1);
+      while (d<=end){ pushInst(d); d=addDays(d,7); }
     } else if (t.freq==='biweekly'){
-      // align using seedDate weekday + every 14 days
       const seed=new Date(t.seedDate||t.startDate||genStart);
-      let d=new Date(seed);
-      // move d forward to >= genStart by steps of 14
-      while (d<genStart) d=addDays(d,14);
-      while (d<=end){ addInst(d); d=addDays(d,14); }
+      let d=new Date(seed); while (d<genStart) d=addDays(d,14);
+      while (d<=end){ pushInst(d); d=addDays(d,14); }
     } else if (t.freq==='semimonthly'){
-      // 1st and 15th
       let d=new Date(genStart.getFullYear(), genStart.getMonth(), 1);
       while (d<=end){
         const d1=new Date(d.getFullYear(), d.getMonth(), 1);
         const d15=new Date(d.getFullYear(), d.getMonth(), 15);
-        if (d1>=genStart && d1<=end) addInst(d1);
-        if (d15>=genStart && d15<=end) addInst(d15);
+        if (d1>=genStart && d1<=end) pushInst(d1);
+        if (d15>=genStart && d15<=end) pushInst(d15);
         d.setMonth(d.getMonth()+1,1);
       }
     } else if (t.freq==='monthly'){
@@ -606,37 +785,40 @@ function generateTemplateInstances(){
       const day = Math.min(31, Math.max(1, Number(t.day||1)));
       while (d<=end){
         const clipped=clipDOM(d.getFullYear(), d.getMonth(), day);
-        if (clipped>=genStart && clipped<=end) addInst(clipped);
+        if (clipped>=genStart && clipped<=end) pushInst(clipped);
         d.setMonth(d.getMonth()+1,1);
       }
     }
   }
 }
 
-// ---- Render ----
+// ---------- Render ----------
 function render(){
-  // generate future instances from templates
+  // templates drive scheduled instances
   generateTemplateInstances();
 
-  // settings to UI
-  dom.payFreq.value = state.settings.payFreq||'biweekly';
-  dom.seedPayday.value = toISO(state.settings.seedPayday||todayStr());
-  dom.undoImportBtn.disabled = !(state.lastImportBatch && Array.isArray(state.lastImportBatch.ids) && state.lastImportBatch.ids.length);
+  // header filters visibility
+  const sel = dom.filterRange.value;
+  const showCustom = sel==='custom';
+  dom.customStart.style.display = showCustom ? '' : 'none';
+  dom.customEnd.style.display = showCustom ? '' : 'none';
+  dom.toSpan.style.display = showCustom ? '' : 'none';
 
+  // totals (current view)
   const range = getActiveRange();
   const {inc, exp, net} = totalsForRange(range);
   dom.sumIncome.textContent = formatCurrency(inc);
   dom.sumExpenses.textContent = formatCurrency(exp);
   dom.sumNet.textContent = formatCurrency(net);
 
-  // pay period header & weekly summary visibility
-  const isPayPeriod = (dom.filterRange.value==='payPeriod');
+  // pay period header / weekly summary
+  const isPayPeriod = (sel==='payPeriod');
   dom.payPeriodHeader.style.display = isPayPeriod ? '' : 'none';
   if (isPayPeriod){
     const {start,end}=currentPayPeriodRange();
     dom.periodLabel.textContent = formatRangeShort(start,end);
   }
-  const isThisWeek = (dom.filterRange.value==='thisWeek');
+  const isThisWeek = (sel==='thisWeek');
   dom.weeklySummary.style.display = isThisWeek ? '' : 'none';
   if (isThisWeek){
     const s=weeklySummaryCalc();
@@ -649,16 +831,15 @@ function render(){
     dom.wkTrend.innerHTML = `vs 4-wk avg: <strong style="color:${color}">${sign} ${formatCurrency(Math.abs(diff))}</strong>`;
   }
 
-  // projected to payday & safe to spend
+  // projected to payday & safe
   const proj = computeProjectedToPayday();
   dom.projectedToPayday.textContent = formatCurrency(proj.projected);
   dom.nextPaydayLabel.textContent = toISO(proj.next);
-
   const sts = computeSafeToSpend();
   dom.safeToSpend.textContent = formatCurrency(sts.safe);
   dom.safePill.classList.toggle('negative', sts.safe < 0);
 
-  // upcoming 7 days  (Mark Paid + Delete buttons)
+  // Upcoming (home)
   const up = computeUpcoming7();
   dom.upBills.textContent = formatCurrency(up.sumExp);
   dom.upIncome.textContent = formatCurrency(up.sumInc);
@@ -668,17 +849,17 @@ function render(){
     const col = x.type==='expense' ? 'style="color:#ff9c9c"' : 'style="color:#6fe3b7"';
     const right = `<span ${col} class="right">${sign}${formatCurrency(x.amount).replace('$','')}</span>`;
     const label = x.type==='expense' ? escapeHtml(x.category||'') : escapeHtml(x.source||'');
-    const actions = `<div style="display:flex; gap:6px">
-      <button class="btn btn-ghost" data-act="paid" data-type="${x.type}" data-id="${x.id}">Mark Paid</button>
-      <button class="btn btn-ghost" data-act="del" data-type="${x.type}" data-id="${x.id}">Delete</button>
-    </div>`;
     return `<div style="display:flex; justify-content:space-between; gap:8px; padding:6px 0; border-bottom:1px solid #1a2030">
       <span>${escapeHtml(x.date||'')} &nbsp; ${label}</span>
-      <div style="display:flex; gap:10px; align-items:center">${right}${actions}</div>
+      <div style="display:flex; gap:8px; align-items:center">
+        ${right}
+        <button class="btn-ghost" data-act="paid" data-type="${x.type}" data-id="${x.id}" style="width:auto">Mark Paid</button>
+        <button class="btn-danger" data-act="del" data-type="${x.type}" data-id="${x.id}" style="width:auto">Delete</button>
+      </div>
     </div>`;
   }).join('') : '<div class="muted">No scheduled items in the next 7 days.</div>';
 
-  // tables (filtered for range, but exclude future scheduled items)
+  // tables (tx tab; exclude future scheduled items)
   const incRows = state.incomes.filter(x=>inRange(x.date, range.start, range.end) && !(x.scheduled && isFuture(x.date)))
     .sort((a,b)=>String(b.date).localeCompare(String(a.date))).map(row=>`
     <tr>
@@ -686,9 +867,9 @@ function render(){
       <td>${escapeHtml(row.source||'')}</td>
       <td>${row.scheduled ? 'Yes' : 'No'}</td>
       <td class="right mono">${formatCurrency(row.amount||0)}</td>
-      <td class="right"><div class="actions" style="justify-content:flex-end">
-        <button class="btn btn-ghost" data-action="edit-income" data-id="${row.id}">Edit</button>
-        <button class="btn btn-danger" data-action="del-income" data-id="${row.id}">Delete</button>
+      <td class="right"><div style="display:flex; gap:8px; justify-content:flex-end">
+        <button class="btn-ghost" data-action="edit-income" data-id="${row.id}" style="width:auto">Edit</button>
+        <button class="btn-danger" data-action="del-income" data-id="${row.id}" style="width:auto">Delete</button>
       </div></td>
     </tr>`).join('');
   dom.incomeTbody.innerHTML = incRows || '<tr><td colspan="5" class="muted">No items for this view.</td></tr>';
@@ -701,29 +882,280 @@ function render(){
       <td>${row.scheduled ? 'Yes' : 'No'}</td>
       <td class="right mono">${formatCurrency(row.amount||0)}</td>
       <td class="muted">${escapeHtml(row.notes||'')}</td>
-      <td class="right"><div class="actions" style="justify-content:flex-end">
-        <button class="btn btn-ghost" data-action="edit-expense" data-id="${row.id}">Edit</button>
-        <button class="btn btn-danger" data-action="del-expense" data-id="${row.id}">Delete</button>
+      <td class="right"><div style="display:flex; gap:8px; justify-content:flex-end">
+        <button class="btn-ghost" data-action="edit-expense" data-id="${row.id}" style="width:auto">Edit</button>
+        <button class="btn-danger" data-action="del-expense" data-id="${row.id}" style="width:auto">Delete</button>
       </div></td>
     </tr>`).join('');
   dom.expenseTbody.innerHTML = expRows || '<tr><td colspan="6" class="muted">No items for this view.</td></tr>';
 
-  // what-if + calculator (based on actual net to date)
+  // tools calculators
   const actualRange = {start: new Date('1970-01-01'), end: new Date()};
   actualRange.end.setHours(0,0,0,0);
   const {net:actualNet} = totalsForRange(actualRange);
   const whatIf = Number(dom.whatIfNumber.value||0);
   dom.projectedBalance.textContent = formatCurrency(actualNet - whatIf);
   const planned = parseAmount(dom.calcAmount.value); dom.calcResult.textContent = formatCurrency(actualNet - (Number.isFinite(planned)?planned:0));
+
+  // calendar
+  renderCalendar();
+  // templates list
+  renderTemplates();
 }
 
-// ---- Events ----
+// ---------- Calendar ----------
+function renderCalendar(){
+  const ym = state.calMonth || toISO(new Date()).slice(0,7); // YYYY-MM
+  const [Y,M] = ym.split('-').map(Number); // M is 1..12
+  const first = new Date(Y, M-1, 1);
+  const label = first.toLocaleString(undefined,{month:'long', year:'numeric'});
+  dom.calLabel.textContent = label;
+
+  // bills-only for the month
+  const monthStart = new Date(Y, M-1, 1,0,0,0,0);
+  const monthEnd = new Date(Y, M, 0,23,59,59,999);
+
+  const bills = state.expenses.filter(x=>x.scheduled && inRange(x.date, monthStart, monthEnd));
+  dom.calMonthTotal.textContent = formatCurrency(bills.reduce((s,x)=>s+Number(x.amount||0),0));
+
+  // grid: Sunday start
+  const start = new Date(monthStart);
+  const startDow = start.getDay(); // 0..6
+  const gridStart = addDays(start, -startDow);
+  const cells = [];
+  for (let i=0;i<42;i++){ // 6 weeks
+    const d=addDays(gridStart,i);
+    const iso=toISO(d);
+    const inMonth = (d.getMonth()===monthStart.getMonth());
+    // entries for that day
+    const dayBills = bills.filter(x=>x.date===iso);
+    const items = dayBills.map(x=>`<div><span>${escapeHtml(x.category||'')}</span><span>${formatCurrency(x.amount)}</span></div>`).join('');
+    const cls = 'cal-cell'+(inMonth?'':' dim');
+    const actions = dayBills.length ? `<button class="btn-ghost" data-cal-act="paid-day" data-date="${iso}" style="width:auto;margin-top:4px">Mark Paid (all)</button>` : '';
+    cells.push(`<div class="${cls}">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span class="date">${d.getDate()}</span>
+        ${dayBills.length?`<span class="badge pill-mini">${dayBills.length}</span>`:''}
+      </div>
+      <div class="cal-daylist">${items||''}</div>
+      ${actions}
+    </div>`);
+  }
+  dom.calGrid.innerHTML = cells.join('');
+}
+
+// ---------- Templates UI ----------
+let _tplEditingId = null;
+function renderTemplates(){
+  if (!state.templates.length){
+    dom.tplList.innerHTML = '<div class="muted">No templates yet.</div>';
+    return;
+  }
+  dom.tplList.innerHTML = state.templates.map(t=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;border:1px solid #273046;border-radius:10px;padding:8px;margin-bottom:8px">
+      <div>
+        <div><strong>${escapeHtml(t.label||'Bill')}</strong> — ${formatCurrency(t.amount||0)} · ${escapeHtml(t.freq)}</div>
+        <div class="muted" style="font-size:.9rem">Start ${escapeHtml(t.startDate||'')}${t.freq==='weekly'?`, ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][t.weekday??0]}`:''}${t.freq==='biweekly'?`, seed ${escapeHtml(t.seedDate||'')}`:''}${t.freq==='monthly'?`, day ${String(t.day||1)}`:''}${t.notes?` · ${escapeHtml(t.notes)}`:''}</div>
+      </div>
+      <div style="display:flex; gap:8px">
+        <label class="btn-ghost" style="width:auto;display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="checkbox" data-tpl-act="toggle" data-id="${t.id}" ${t.active!==false?'checked':''} style="width:auto" /> Active
+        </label>
+        <button class="btn-ghost" data-tpl-act="edit" data-id="${t.id}" style="width:auto">Edit</button>
+        <button class="btn-danger" data-tpl-act="del" data-id="${t.id}" style="width:auto">Delete</button>
+      </div>
+    </div>
+  `).join('');
+}
+function clearTplForm(){
+  _tplEditingId=null;
+  dom.tplLabel.value=''; dom.tplAmount.value=''; dom.tplFreq.value='monthly';
+  dom.tplWeekday.value='0'; dom.tplSeedDate.value=''; dom.tplMonthDay.value='1';
+  dom.tplStart.value=todayStr(); dom.tplNotes.value=''; dom.tplActive.checked=true;
+  dom.tplCancel.style.display='none'; dom.tplErr.style.display='none';
+}
+function readTplForm(){
+  const label=dom.tplLabel.value.trim();
+  const amount=parseAmount(dom.tplAmount.value);
+  if (!label || !Number.isFinite(amount) || amount<0){ dom.tplErr.style.display='block'; return null; }
+  const freq=dom.tplFreq.value;
+  const tpl={label, amount:Number(amount), freq,
+    weekday: (freq==='weekly')? Number(dom.tplWeekday.value):undefined,
+    seedDate: (freq==='biweekly')? dom.tplSeedDate.value:undefined,
+    day: (freq==='monthly')? Number(dom.tplMonthDay.value):undefined,
+    startDate: dom.tplStart.value||todayStr(),
+    notes: dom.tplNotes.value.trim(),
+    active: dom.tplActive.checked!==false
+  };
+  return tpl;
+}
+
+// ---------- CSV ----------
+let _csvData = { headers:[], rows:[] };
+function handleCsvFile(e){
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload = () => { const text=reader.result; const parsed=parseCSV(text); if (!parsed.headers.length){ alert('Could not read CSV headers.'); return; } _csvData=parsed; openCsvModal(parsed); };
+  reader.readAsText(file); e.target.value='';
+}
+function parseCSV(text){
+  const rows=[]; let cur='', inQ=false; let row=[];
+  for (let i=0;i<text.length;i++){
+    const c=text[i], n=text[i+1];
+    if (inQ){ if (c==='\"' && n==='\"'){ cur+='\"'; i++; } else if (c==='\"'){ inQ=false; } else cur+=c; }
+    else { if (c==='\"'){ inQ=true; } else if (c===',' ){ row.push(cur); cur=''; } else if (c==='\n' || c==='\r'){ if (cur!=='' || row.length){ row.push(cur); rows.push(row); row=[]; cur=''; } } else cur+=c; }
+  }
+  if (cur!=='' || row.length){ row.push(cur); rows.push(row); }
+  const headers = (rows.shift()||[]).map(h=>h.trim());
+  return { headers, rows };
+}
+function openCsvModal(parsed){
+  const H=parsed.headers;
+  fillSelect(dom.mapDate, H, guessHeader(H, ['post date','date','effective date']));
+  fillSelect(dom.mapDesc, H, guessHeader(H, ['transaction description','description','memo','details']));
+  fillSelect(dom.mapAmount, H, guessHeader(H, ['amount','transaction amount']));
+  fillSelect(dom.mapDebit, H, guessHeader(H, ['debit']));
+  fillSelect(dom.mapCredit, H, guessHeader(H, ['credit']));
+  dom.amountMode.value = autoAmountMode(H);
+  updateAmountModeUI();
+  dom.csvHead.innerHTML = H.map(h=>`<th>${escapeHtml(h||'')}</th>`).join('');
+  const max= Math.min(20, parsed.rows.length);
+  dom.csvBody.innerHTML = parsed.rows.slice(0,max).map(r=>`<tr>${H.map((_,i)=>`<td>${escapeHtml(r[i]||'')}</td>`).join('')}</tr>`).join('');
+  dom.csvModal.style.display='flex';
+}
+function closeCsvModal(){ dom.csvModal.style.display='none'; _csvData={headers:[],rows:[]}; }
+function fillSelect(sel, headers, selected){ sel.innerHTML = headers.map(h=>`<option value="${escapeHtml(h)}">${escapeHtml(h)}</option>`).join(''); if (selected && headers.includes(selected)) sel.value=selected; }
+function guessHeader(headers, candidates){ const lower=headers.map(h=>h.toLowerCase()); for (const c of candidates){ const idx=lower.indexOf(c); if (idx>=0) return headers[idx]; const foundIdx=lower.findIndex(h=>h.includes(c)); if (foundIdx>=0) return headers[foundIdx]; } return headers[0]||''; }
+function autoAmountMode(H){ const lower=H.map(h=>h.toLowerCase()); if (lower.some(h=>h.includes('debit')) && lower.some(h=>h.includes('credit'))) return 'dc'; if (lower.some(h=>h.includes('amount'))) return 'signed'; return 'auto'; }
+function updateAmountModeUI(){ const mode=dom.amountMode.value; dom.amountRowSigned.style.display = (mode==='signed' || mode==='auto') ? '' : 'none'; dom.amountRowDC.style.display = (mode==='dc') ? '' : 'none'; }
+function importCsvMapped(){
+  const H=_csvData.headers, rows=_csvData.rows; if (!H.length){ alert('No CSV loaded'); return; }
+  const hDate = dom.mapDate.value, hDesc=dom.mapDesc.value; const mode = (dom.amountMode.value==='auto') ? autoAmountMode(H) : dom.amountMode.value;
+  const idsImported=[]; let count=0;
+  for (const r of rows){
+    const map = Object.create(null); H.forEach((h,i)=> map[h]=r[i]||'');
+    const desc = String(map[hDesc]||'').trim(); if (/beginning balance/i.test(desc)) continue;
+    let dstr = String(map[hDate]||'').trim(); if (!dstr) continue;
+    const dtry = new Date(dstr); if (isNaN(dtry.getTime())) continue; const iso = toISO(dtry);
+    let amt = 0;
+    if (mode==='dc'){ const debit = parseAmount(map[dom.mapDebit.value]); const credit = parseAmount(map[dom.mapCredit.value]); amt = (Number.isFinite(credit)?credit:0) - (Number.isFinite(debit)?debit:0); }
+    else { let a = parseAmount(map[dom.mapAmount.value]); if (!Number.isFinite(a)) continue; if (dom.invertSign.value==='yes') a = -a; amt = a; }
+    if (amt === 0) continue;
+    const now = Date.now();
+    if (amt > 0){ state.incomes.push({id:uid(), date:iso, source:desc||'Import', amount:amt, scheduled:false, u:now}); idsImported.push(state.incomes[state.incomes.length-1].id); }
+    else { state.expenses.push({id:uid(), date:iso, category:'Imported', amount:Math.abs(amt), notes:desc||'', scheduled:false, u:now}); idsImported.push(state.expenses[state.expenses.length-1].id); }
+    count++;
+  }
+  state.lastImportBatch = { ids: idsImported, ts: Date.now() };
+  saveState(); render(); closeCsvModal(); toast(`Imported ${count} rows`);
+}
+
+// ---------- E2EE Sync (GitHub Gist) ----------
+async function syncEncrypt(obj, pass){ const enc=new TextEncoder(), dec=new TextDecoder();
+  const salt=crypto.getRandomValues(new Uint8Array(16));
+  const key=await deriveKey(pass,salt);
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const ct=await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, enc.encode(JSON.stringify(obj)));
+  return { salt: b64(salt), iv: b64(iv), data: b64(new Uint8Array(ct)) };
+}
+async function syncDecrypt(pack, pass){
+  const {salt, iv, data}=pack; const key=await deriveKey(pass, b64d(salt));
+  const pt=await crypto.subtle.decrypt({name:'AES-GCM', iv:b64d(iv)}, key, b64d(data));
+  return JSON.parse(new TextDecoder().decode(new Uint8Array(pt)));
+}
+async function deriveKey(pass, salt){
+  const base=await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2', salt, iterations:100000, hash:'SHA-256'}, base, {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']);
+}
+function b64(u8){return btoa(String.fromCharCode(...u8))}
+function b64d(s){const bin=atob(s);const u8=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i);return u8}
+
+function collectStateForSync(){
+  return {
+    version: state.version||'1.3.0',
+    ts: Date.now(),
+    settings: state.settings, payPeriodOffset: state.payPeriodOffset,
+    incomes: state.incomes, expenses: state.expenses, templates: state.templates
+  };
+}
+function mergeById(localArr, remoteArr){
+  const map=new Map(); const put=(x)=>{ if(!x) return; const prev=map.get(x.id); if(!prev || (x.u||0)>(prev.u||0)) map.set(x.id,x); };
+  localArr.forEach(put); remoteArr.forEach(put);
+  return Array.from(map.values());
+}
+async function syncNow(){
+  try{
+    const cfg=state.sync||{};
+    if(!cfg.enabled) throw new Error('Not linked');
+    if(!cfg.syncId || !cfg.pass || !cfg.token) throw new Error('Missing sync config');
+    const filename = `${cfg.syncId}.json`;
+    const headers = { 'Accept':'application/vnd.github+json', 'Authorization': `Bearer ${cfg.token}`, 'X-GitHub-Api-Version':'2022-11-28' };
+
+    // fetch existing
+    let remote=null;
+    if (cfg.gistId){
+      const res=await fetch(`https://api.github.com/gists/${cfg.gistId}`, {headers});
+      if (!res.ok) throw new Error('Fetch gist failed');
+      const j=await res.json();
+      const file=j.files && j.files[filename];
+      if (file && file.content){ try{ remote = JSON.parse(file.content); }catch{} }
+    }
+
+    // decrypt remote
+    let remoteState=null;
+    if (remote && remote.data){ try{ remoteState = await syncDecrypt(remote, cfg.pass); }catch{} }
+
+    // merge
+    if (remoteState){
+      state.incomes = mergeById(state.incomes, remoteState.incomes||[]);
+      state.expenses = mergeById(state.expenses, remoteState.expenses||[]);
+      state.templates = mergeById(state.templates, remoteState.templates||[]);
+      // settings last-write-wins
+      if ((remoteState.ts||0) > ((state.sync.lastSettingsMergeTs)||0)){
+        state.settings = remoteState.settings||state.settings;
+        state.payPeriodOffset = remoteState.payPeriodOffset||0;
+        state.sync.lastSettingsMergeTs = remoteState.ts;
+      }
+    }
+
+    // encrypt and push
+    const pack = await syncEncrypt(collectStateForSync(), cfg.pass);
+    const body = cfg.gistId ? {
+      files: { [filename]: { content: JSON.stringify(pack) } }
+    } : {
+      description: 'Budget App E2EE Sync',
+      public: false,
+      files: { [filename]: { content: JSON.stringify(pack) } }
+    };
+    const method = cfg.gistId ? 'PATCH' : 'POST';
+    const url = cfg.gistId ? `https://api.github.com/gists/${cfg.gistId}` : `https://api.github.com/gists`;
+    const push=await fetch(url,{method, headers, body: JSON.stringify(body)});
+    if (!push.ok) throw new Error('Push failed');
+    const pushed=await push.json();
+    state.sync.gistId = pushed.id || state.sync.gistId;
+    saveState(); render();
+    dom.syncStatus.textContent = `Status: Synced at ${new Date().toLocaleString()}`;
+  }catch(err){
+    dom.syncStatus.textContent = `Status: ${err.message||err}`;
+  }
+}
+
+// ---------- Events ----------
 function init(){
+  // tab switching
+  dom.tabs.forEach(btn=>btn.addEventListener('click', ()=>{
+    dom.tabs.forEach(b=>b.classList.remove('active'));
+    const t=btn.getAttribute('data-tab');
+    Object.values(dom.pages).forEach(p=>p.classList.remove('active'));
+    dom.pages[t].classList.add('active');
+  }));
+
   // defaults
   dom.incomeDate.value = todayStr();
   dom.expenseDate.value = todayStr();
   dom.payFreq.value = state.settings.payFreq||'biweekly';
   dom.seedPayday.value = toISO(state.settings.seedPayday||todayStr());
+  dom.tplStart.value = todayStr();
 
   // Filters
   function onFilterChange(){
@@ -737,10 +1169,8 @@ function init(){
   dom.filterRange.addEventListener('change', onFilterChange);
   dom.customStart.addEventListener('change', render);
   dom.customEnd.addEventListener('change', render);
-
-  // Pay period prev/next
-  dom.prevPeriod.addEventListener('click', ()=>{ state.payPeriodOffset=(state.payPeriodOffset||0)-1; render(); saveState(); });
-  dom.nextPeriod.addEventListener('click', ()=>{ state.payPeriodOffset=(state.payPeriodOffset||0)+1; render(); saveState(); });
+  dom.prevPeriod.addEventListener('click', ()=>{ state.payPeriodOffset=(state.payPeriodOffset||0)-1; saveState(); render(); });
+  dom.nextPeriod.addEventListener('click', ()=>{ state.payPeriodOffset=(state.payPeriodOffset||0)+1; saveState(); render(); });
 
   // Settings
   dom.payFreq.addEventListener('change', ()=>{ state.settings.payFreq = dom.payFreq.value; saveState(); render(); });
@@ -754,7 +1184,7 @@ function init(){
     const amt=parseAmount(dom.incomeAmount.value);
     const scheduled= !!dom.incomeScheduled.checked;
     if(!Number.isFinite(amt)||amt<0){ dom.incomeAmountErr.style.display='block'; return; } else dom.incomeAmountErr.style.display='none';
-    state.incomes.push({id:uid(), date, source, amount:amt, scheduled});
+    state.incomes.push({id:uid(), date, source, amount:amt, scheduled, u:Date.now()});
     saveState(); clearIncomeForm(); render(); toast('Income added');
   });
   dom.incomeCancelEdit.addEventListener('click', ()=>{ clearIncomeForm(); });
@@ -770,12 +1200,12 @@ function init(){
     const notes=dom.expenseNotes.value.trim();
     const scheduled= !!dom.expenseScheduled.checked;
     if(!Number.isFinite(amt)||amt<0){ dom.expenseAmountErr.style.display='block'; return; } else dom.expenseAmountErr.style.display='none';
-    state.expenses.push({id:uid(), date, category, amount:amt, notes, scheduled});
+    state.expenses.push({id:uid(), date, category, amount:amt, notes, scheduled, u:Date.now()});
     saveState(); clearExpenseForm(); render(); toast('Expense added');
   });
   dom.expenseCancelEdit.addEventListener('click', ()=>{ clearExpenseForm(); });
 
-  // Table actions (edit/delete)
+  // Table actions
   dom.incomeTbody.addEventListener('click', (e)=>{
     const btn=e.target.closest('button[data-action]'); if(!btn) return;
     const id=btn.getAttribute('data-id'); const action=btn.getAttribute('data-action');
@@ -812,48 +1242,10 @@ function init(){
     }
   });
 
-  // Export / Import JSON
-  dom.exportBtn.addEventListener('click', ()=>{
-    const blob=new Blob([JSON.stringify(state,null,2)], {type:'application/json'});
-    const url=URL.createObjectURL(blob); const a=document.createElement('a');
-    a.href=url; a.download=`budget-export-v12-${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.json`;
-    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); toast('Exported JSON');
-  });
-  dom.importFile.addEventListener('change', async (e)=>{
-    const file=e.target.files[0]; if(!file) return;
-    try{ const text=await file.text(); const obj=JSON.parse(text);
-      if(!obj || !Array.isArray(obj.incomes) || !Array.isArray(obj.expenses)) throw new Error('Invalid format');
-      state={
-        version: obj.version||'1.2.0',
-        settings: obj.settings||state.settings,
-        payPeriodOffset: obj.payPeriodOffset||0,
-        incomes: obj.incomes.map(x=>({...x, scheduled: !!x.scheduled})),
-        expenses: obj.expenses.map(x=>({...x, scheduled: !!x.scheduled})),
-        templates: Array.isArray(obj.templates)? obj.templates : (state.templates||[]),
-        lastImportBatch: null
-      };
-      saveState(); render(); toast('Imported data');
-    }catch(err){ alert('Import failed: '+(err.message||err)); } finally { e.target.value=''; }
-  });
-
-  // TRUE RESET: clear transactions, keep settings & templates
-  dom.resetBtn.addEventListener('click', ()=>{
-    if (!confirm('This will erase ALL incomes/expenses. Keep settings & templates?')) return;
-    const settings = state.settings || { payFreq:'biweekly', seedPayday: toISO(addDays(new Date(), 14)) };
-    const templates = state.templates || [];
-    state = { version:'1.2.0', settings, payPeriodOffset:0, incomes:[], expenses:[], templates, lastImportBatch:null };
-    saveState();
-    render();
-    toast('All transactions cleared');
-  });
-
-  // Upcoming list actions (Mark Paid / Delete scheduled item)
+  // Upcoming actions (Home)
   dom.upcomingList.addEventListener('click', (e)=>{
-    const btn = e.target.closest('button[data-act]');
-    if (!btn) return;
-    const act = btn.getAttribute('data-act');     // 'paid' | 'del'
-    const id  = btn.getAttribute('data-id');      // item id
-    const typ = btn.getAttribute('data-type');    // 'income' | 'expense'
+    const btn = e.target.closest('button[data-act]'); if (!btn) return;
+    const act = btn.getAttribute('data-act'); const id = btn.getAttribute('data-id'); const typ = btn.getAttribute('data-type');
     if (act === 'del') {
       if (!confirm('Delete this scheduled item?')) return;
       if (typ === 'income') state.incomes = state.incomes.filter(x => x.id !== id);
@@ -861,175 +1253,131 @@ function init(){
       saveState(); render(); toast('Scheduled item deleted');
     } else if (act === 'paid') {
       if (typ === 'income') {
-        const it = state.incomes.find(x=>x.id===id);
-        if (!it) return;
-        const posted = toISO(new Date()); // today-date per spec
-        // convert to actual
-        state.incomes = state.incomes.filter(x=>x.id!==id);
-        state.incomes.push({id:uid(), date:posted, source:it.source||'Income', amount:Number(it.amount||0), scheduled:false});
-        saveState(); render(); toast('Marked paid');
+        const it = state.incomes.find(x=>x.id===id); if (!it) return;
+        const posted = toISO(new Date()); state.incomes = state.incomes.filter(x=>x.id!==id);
+        state.incomes.push({id:uid(), date:posted, source:it.source||'Income', amount:Number(it.amount||0), scheduled:false, u:Date.now()});
       } else {
-        const it = state.expenses.find(x=>x.id===id);
-        if (!it) return;
-        // quick edit of amount on mark paid
+        const it = state.expenses.find(x=>x.id===id); if (!it) return;
         let amt = Number(it.amount||0);
-        const next = prompt('Confirm amount for payment (you can adjust):', (Number(amt).toFixed(2)));
-        if (next===null) return; // cancelled
-        const parsed = parseAmount(next);
-        if (!Number.isFinite(parsed) || parsed<0){ alert('Invalid amount'); return; }
-        const posted = toISO(new Date());
-        state.expenses = state.expenses.filter(x=>x.id!==id);
-        state.expenses.push({id:uid(), date:posted, category:it.category||'Expense', amount:parsed, notes:it.notes||'', scheduled:false});
-        saveState(); render(); toast('Marked paid');
+        const next = prompt('Confirm amount (you can adjust):', (Number(amt).toFixed(2))); if (next===null) return;
+        const parsed = parseAmount(next); if (!Number.isFinite(parsed) || parsed<0){ alert('Invalid amount'); return; }
+        const posted = toISO(new Date()); state.expenses = state.expenses.filter(x=>x.id!==id);
+        state.expenses.push({id:uid(), date:posted, category:it.category||'Expense', amount:parsed, notes:it.notes||'', scheduled:false, u:Date.now()});
       }
+      saveState(); render(); toast('Marked paid');
     }
   });
 
-  // What-if & calculator
+  // Calendar navigation and day actions
+  dom.calPrev.addEventListener('click', ()=>{ const [y,m]=state.calMonth.split('-').map(Number); const d=new Date(Number(y),Number(m)-2,1); state.calMonth = toISO(d).slice(0,7); saveState(); render(); });
+  dom.calNext.addEventListener('click', ()=>{ const [y,m]=state.calMonth.split('-').map(Number); const d=new Date(Number(y),Number(m),1); state.calMonth = toISO(d).slice(0,7); saveState(); render(); });
+  dom.calGrid.addEventListener('click', (e)=>{
+    const btn=e.target.closest('button[data-cal-act="paid-day"]'); if(!btn) return;
+    const iso=btn.getAttribute('data-date');
+    const dayBills = state.expenses.filter(x=>x.scheduled && x.date===iso);
+    if (!dayBills.length) return;
+    if (!confirm(`Mark ${dayBills.length} bill(s) on ${iso} as paid?`)) return;
+    for (const it of dayBills){
+      let amt = Number(it.amount||0);
+      const promptVal = prompt(`Amount for ${it.category||'Bill'} on ${iso}:`, (Number(amt).toFixed(2)));
+      if (promptVal===null) return;
+      const parsed=parseAmount(promptVal); if (!Number.isFinite(parsed)||parsed<0){ alert('Invalid amount'); return; }
+      const posted = toISO(new Date());
+      state.expenses = state.expenses.filter(x=>x.id!==it.id);
+      state.expenses.push({id:uid(), date:posted, category:it.category||'Expense', amount:parsed, notes:it.notes||'', scheduled:false, u:Date.now()});
+    }
+    saveState(); render(); toast('Marked paid');
+  });
+
+  // Tools (calc)
   dom.whatIfNumber.addEventListener('input', render);
   dom.calcAmount.addEventListener('input', render);
 
-  // CSV Import
+  // CSV/JSON buttons duplicate in Tools
+  dom.exportBtn.addEventListener('click', exportJSON);
+  dom.exportBtn2.addEventListener('click', exportJSON);
+  dom.importFile.addEventListener('change', importJSON);
+  dom.importFile2.addEventListener('change', importJSON);
+  dom.csvFile.addEventListener('change', handleCsvFile);
+  dom.csvFile2.addEventListener('change', handleCsvFile);
+  dom.undoImportBtn.addEventListener('click', undoImport);
+  dom.undoImportBtn2.addEventListener('click', undoImport);
   dom.csvClose.addEventListener('click', closeCsvModal);
   dom.csvImportBtn.addEventListener('click', importCsvMapped);
-  dom.csvFile.addEventListener('change', handleCsvFile);
-  dom.amountMode.addEventListener('change', updateAmountModeUI);
+
+  // Reset (both places)
+  dom.resetBtn.addEventListener('click', resetAll);
+  dom.resetBtn2.addEventListener('click', resetAll);
+
+  // Template form
+  dom.tplFreq.addEventListener('change', ()=>{/* anchors shown implicitly */});
+  dom.tplSave.addEventListener('click', (e)=>{ e.preventDefault(); const t=readTplForm(); if (!t) return;
+    if (_tplEditingId){
+      const idx=state.templates.findIndex(x=>x.id===_tplEditingId); if (idx>=0){
+        const old=state.templates[idx];
+        state.templates[idx]={...old, ...t, id:old.id, u:Date.now()};
+      }
+    }else{
+      state.templates.push({...t, id:uid(), u:Date.now()});
+    }
+    saveState(); clearTplForm(); render(); toast('Template saved');
+  });
+  dom.tplCancel.addEventListener('click', ()=>{ clearTplForm(); });
+
+  dom.tplList.addEventListener('click', (e)=>{
+    const btn=e.target.closest('[data-tpl-act]'); if(!btn) return;
+    const id=btn.getAttribute('data-id'); const act=btn.getAttribute('data-tpl-act'); const t=state.templates.find(x=>x.id===id);
+    if (!t) return;
+    if (act==='del'){ if (!confirm('Delete this template?')) return; state.templates=state.templates.filter(x=>x.id!==id); saveState(); render(); toast('Template deleted'); }
+    else if (act==='edit'){ _tplEditingId=id; dom.tplLabel.value=t.label||''; dom.tplAmount.value=Number(t.amount||0).toFixed(2); dom.tplFreq.value=t.freq||'monthly';
+      dom.tplWeekday.value=String(t.weekday??0); dom.tplSeedDate.value=t.seedDate||''; dom.tplMonthDay.value=String(t.day||1);
+      dom.tplStart.value=t.startDate||todayStr(); dom.tplNotes.value=t.notes||''; dom.tplActive.checked=(t.active!==false); dom.tplCancel.style.display='inline-block'; }
+    else if (act==='toggle'){ t.active = !btn.querySelector('input').checked ? false : true; saveState(); render(); }
+  });
+
+  // Sync UI
+  dom.syncLink.addEventListener('click', ()=>{
+    const cfg=state.sync||{};
+    cfg.syncId = dom.syncId.value.trim();
+    cfg.pass = dom.syncPass.value;
+    cfg.token = dom.gistToken.value.trim();
+    cfg.gistId = dom.gistId.value.trim() || undefined;
+    cfg.enabled = !!(cfg.syncId && cfg.pass && cfg.token);
+    state.sync=cfg; saveState();
+    dom.syncStatus.textContent = cfg.enabled ? `Linked${cfg.gistId?` to gist ${cfg.gistId}`:''}` : 'Status: Not linked';
+  });
+  dom.syncNow.addEventListener('click', ()=>{ syncNow(); });
+  dom.syncUnlink.addEventListener('click', ()=>{ state.sync={enabled:false}; saveState(); dom.syncStatus.textContent='Status: Not linked'; });
 
   render();
 }
 
-// ---- CSV support ----
-let _csvData = { headers:[], rows:[] };
-function handleCsvFile(e){
+// ---------- JSON export/import, undo, reset ----------
+function exportJSON(){
+  const blob=new Blob([JSON.stringify(state,null,2)], {type:'application/json'});
+  const url=URL.createObjectURL(blob); const a=document.createElement('a');
+  a.href=url; a.download=`budget-export-v13-${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.json`;
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); toast('Exported JSON');
+}
+async function importJSON(e){
   const file=e.target.files[0]; if(!file) return;
-  const reader=new FileReader();
-  reader.onload = () => {
-    const text=reader.result;
-    const parsed=parseCSV(text);
-    if (!parsed.headers.length){ alert('Could not read CSV headers.'); return; }
-    _csvData=parsed;
-    openCsvModal(parsed);
-  };
-  reader.readAsText(file);
-  // reset input so selecting same file again works
-  e.target.value='';
+  try{ const text=await file.text(); const obj=JSON.parse(text);
+    if(!obj || !Array.isArray(obj.incomes) || !Array.isArray(obj.expenses)) throw new Error('Invalid format');
+    state={
+      version: obj.version||'1.3.0',
+      settings: obj.settings||state.settings,
+      payPeriodOffset: obj.payPeriodOffset||0,
+      incomes: (obj.incomes||[]).map(x=>({...x, scheduled: !!x.scheduled, u:x.u||Date.now()})),
+      expenses: (obj.expenses||[]).map(x=>({...x, scheduled: !!x.scheduled, u:x.u||Date.now()})),
+      templates: Array.isArray(obj.templates)? obj.templates.map(x=>({...x, u:x.u||Date.now()})) : (state.templates||[]),
+      lastImportBatch: null,
+      calMonth: obj.calMonth||state.calMonth,
+      sync: state.sync||{enabled:false}
+    };
+    saveState(); render(); toast('Imported data');
+  }catch(err){ alert('Import failed: '+(err.message||err)); } finally { e.target.value=''; }
 }
-function parseCSV(text){
-  // simple CSV parser handling quotes & commas
-  const rows=[]; let cur='', inQ=false; let row=[];
-  for (let i=0;i<text.length;i++){
-    const c=text[i], n=text[i+1];
-    if (inQ){
-      if (c==='\"' && n==='\"'){ cur+='\"'; i++; }
-      else if (c==='\"'){ inQ=false; }
-      else cur+=c;
-    }else{
-      if (c==='\"'){ inQ=true; }
-      else if (c===',' ){ row.push(cur); cur=''; }
-      else if (c==='\n' || c==='\r'){ if (cur!=='' || row.length){ row.push(cur); rows.push(row); row=[]; cur=''; } }
-      else cur+=c;
-    }
-  }
-  if (cur!=='' || row.length){ row.push(cur); rows.push(row); }
-  // headers + sample rows
-  const headers = (rows.shift()||[]).map(h=>h.trim());
-  return { headers, rows };
-}
-function openCsvModal(parsed){
-  // fill selects
-  const H=parsed.headers;
-  fillSelect(dom.mapDate, H, guessHeader(H, ['post date','date','effective date']));
-  fillSelect(dom.mapDesc, H, guessHeader(H, ['transaction description','description','memo','details']));
-  fillSelect(dom.mapAmount, H, guessHeader(H, ['amount','transaction amount']));
-  fillSelect(dom.mapDebit, H, guessHeader(H, ['debit']));
-  fillSelect(dom.mapCredit, H, guessHeader(H, ['credit']));
-  dom.amountMode.value = autoAmountMode(H);
-  updateAmountModeUI();
-
-  // build preview (first 20)
-  dom.csvHead.innerHTML = H.map(h=>`<th>${escapeHtml(h||'')}</th>`).join('');
-  const max= Math.min(20, parsed.rows.length);
-  dom.csvBody.innerHTML = parsed.rows.slice(0,max).map(r=>`<tr>${H.map((_,i)=>`<td>${escapeHtml(r[i]||'')}</td>`).join('')}</tr>`).join('');
-  dom.csvModal.style.display='flex';
-}
-function closeCsvModal(){ dom.csvModal.style.display='none'; _csvData={headers:[],rows:[]}; }
-function fillSelect(sel, headers, selected){
-  sel.innerHTML = headers.map(h=>`<option value="${escapeHtml(h)}">${escapeHtml(h)}</option>`).join('');
-  if (selected && headers.includes(selected)) sel.value=selected;
-}
-function guessHeader(headers, candidates){
-  const lower=headers.map(h=>h.toLowerCase());
-  for (const c of candidates){
-    const idx=lower.indexOf(c);
-    if (idx>=0) return headers[idx];
-    // contains
-    const foundIdx=lower.findIndex(h=>h.includes(c));
-    if (foundIdx>=0) return headers[foundIdx];
-  }
-  return headers[0]||'';
-}
-function autoAmountMode(H){
-  const lower=H.map(h=>h.toLowerCase());
-  if (lower.some(h=>h.includes('debit')) && lower.some(h=>h.includes('credit'))) return 'dc';
-  if (lower.some(h=>h.includes('amount'))) return 'signed';
-  return 'auto';
-}
-function updateAmountModeUI(){
-  const mode=dom.amountMode.value;
-  dom.amountRowSigned.style.display = (mode==='signed' || mode==='auto') ? '' : 'none';
-  dom.amountRowDC.style.display = (mode==='dc') ? '' : 'none';
-}
-function importCsvMapped(){
-  const H=_csvData.headers, rows=_csvData.rows;
-  if (!H.length){ alert('No CSV loaded'); return; }
-  const hDate = dom.mapDate.value, hDesc=dom.mapDesc.value;
-  const mode = (dom.amountMode.value==='auto') ? autoAmountMode(H) : dom.amountMode.value;
-  const idsImported=[];
-  let count=0;
-  for (const r of rows){
-    const map = Object.create(null);
-    H.forEach((h,i)=> map[h]=r[i]||'');
-    const desc = String(map[hDesc]||'').trim();
-    if (/beginning balance/i.test(desc)) continue;
-
-    // date
-    let dstr = String(map[hDate]||'').trim();
-    if (!dstr) continue;
-    const dtry = new Date(dstr);
-    if (isNaN(dtry.getTime())) continue;
-    const iso = toISO(dtry);
-
-    // amount
-    let amt = 0;
-    if (mode==='dc'){
-      const debit = parseAmount(map[dom.mapDebit.value]);
-      const credit = parseAmount(map[dom.mapCredit.value]);
-      const d = Number.isFinite(debit)?debit:0;
-      const c = Number.isFinite(credit)?credit:0;
-      amt = c - d; // credit positive, debit negative
-    } else { // signed
-      let a = parseAmount(map[dom.mapAmount.value]);
-      if (!Number.isFinite(a)) continue;
-      if (dom.invertSign.value==='yes') a = -a;
-      amt = a;
-    }
-
-    // build transaction
-    if (amt === 0) continue;
-    if (amt > 0){
-      state.incomes.push({id:uid(), date:iso, source:desc||'Import', amount:amt, scheduled:false});
-      idsImported.push(state.incomes[state.incomes.length-1].id);
-    } else {
-      state.expenses.push({id:uid(), date:iso, category:'Imported', amount:Math.abs(amt), notes:desc||'', scheduled:false});
-      idsImported.push(state.expenses[state.expenses.length-1].id);
-    }
-    count++;
-  }
-  state.lastImportBatch = { ids: idsImported, ts: Date.now() };
-  saveState(); render(); closeCsvModal();
-  toast(`Imported ${count} rows`);
-}
-dom.undoImportBtn?.addEventListener('click', ()=>{
+function undoImport(){
   const batch = state.lastImportBatch;
   if (!batch || !Array.isArray(batch.ids) || !batch.ids.length) return;
   const set=new Set(batch.ids);
@@ -1039,9 +1387,15 @@ dom.undoImportBtn?.addEventListener('click', ()=>{
   const removed=(b1-state.incomes.length)+(b2-state.expenses.length);
   state.lastImportBatch=null;
   saveState(); render(); toast(`Undid ${removed} imported rows`);
-});
+}
+function resetAll(){
+  if (!confirm('Erase ALL incomes/expenses? (Settings & templates stay)')) return;
+  const keepSettings=state.settings, keepTemplates=state.templates;
+  state = { version:'1.3.0', settings:keepSettings, payPeriodOffset:0, incomes:[], expenses:[], templates:keepTemplates, lastImportBatch:null, calMonth: toISO(new Date()).slice(0,7), sync: state.sync||{enabled:false} };
+  saveState(); render(); toast('All transactions cleared');
+}
 
-// helpers
+// ---------- helpers ----------
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1400)}
 function clearIncomeForm(){ dom.incomeDate.value=todayStr(); dom.incomeSource.value=''; dom.incomeAmount.value=''; dom.incomeScheduled.checked=false; dom.incomeAmountErr.style.display='none'; dom.incomeSubmitBtn.textContent='Add Income'; }
 function clearExpenseForm(){ dom.expenseDate.value=todayStr(); dom.expenseCategory.value='Housing'; dom.expenseCategoryCustom.value=''; dom.expenseAmount.value=''; dom.expenseNotes.value=''; dom.expenseScheduled.checked=false; dom.expenseAmountErr.style.display='none'; dom.expenseSubmitBtn.textContent='Add Expense'; }
@@ -1050,3 +1404,4 @@ init();
 </script>
 </body>
 </html>
+
