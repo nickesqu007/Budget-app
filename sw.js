@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v1.1.0';
+const CACHE_VERSION = 'v1.1.1';
 const CACHE_NAME = 'budget-cache-' + CACHE_VERSION;
 const ASSETS = [
   './',
@@ -15,7 +15,9 @@ self.addEventListener('install', (e)=>{
 self.addEventListener('activate', (e)=>{
   e.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.filter(k=>k.startsWith('budget-cache-') && k!==CACHE_NAME).map(k=>caches.delete(k)))
+      Promise.all(keys
+        .filter(k=>k.startsWith('budget-cache-') && k!==CACHE_NAME)
+        .map(k=>caches.delete(k)))
     )
   );
   self.clients.claim();
