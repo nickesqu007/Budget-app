@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>My Budget v1.1</title>
+<title>My Budget v1.1.1</title>
 <link rel="manifest" href="./manifest.webmanifest">
 <meta name="theme-color" content="#0b0e13" />
 <link rel="icon" href="./icon-192.png" sizes="192x192">
@@ -252,7 +252,7 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-const LS_KEY='simple_budget_v11';
+const LS_KEY='simple_budget_v11'; // keep same to preserve data
 const fmt=new Intl.NumberFormat(undefined,{style:'currency',currency:getLikelyCurrency(),minimumFractionDigits:2,maximumFractionDigits:2});
 function getLikelyCurrency(){try{new Intl.NumberFormat(undefined,{style:'currency',currency:'USD'}).formatToParts(1);return(Intl.NumberFormat().resolvedOptions().currency||'USD')}catch{return'USD'}}
 function formatCurrency(n){return fmt.format(Number(n||0))}
@@ -288,8 +288,8 @@ function byId(id){return document.getElementById(id)}
 function loadState(){try{const raw=localStorage.getItem(LS_KEY); if(!raw) return seed(); const obj=JSON.parse(raw); return obj;}catch{return seed()}}
 function saveState(){localStorage.setItem(LS_KEY, JSON.stringify(state))}
 function seed(){
-  const s = { version:'1.1', settings:{payFreq:'biweekly', seedPayday: toISO(addDays(new Date(), 14))}, incomes:[], expenses:[] };
-  // tiny seed
+  const s = { version:'1.1.1', settings:{payFreq:'biweekly', seedPayday: toISO(addDays(new Date(), 14))}, incomes:[], expenses:[] };
+  // tiny seed (first run only)
   s.incomes.push({id:uid(), date:toISO(addDays(new Date(), -10)), source:'Paycheck', amount:3200, scheduled:false});
   s.incomes.push({id:uid(), date:toISO(addDays(new Date(), -3)), source:'Freelance', amount:450, scheduled:false});
   s.expenses.push({id:uid(), date:toISO(addDays(new Date(), -9)), category:'Housing', amount:1200, notes:'Rent', scheduled:false});
@@ -406,7 +406,7 @@ function render(){
   dom.projectedToPayday.textContent = formatCurrency(proj.projected);
   dom.nextPaydayLabel.textContent = toISO(proj.next);
 
-  // upcoming 7 days
+  // upcoming 7 days  (with Delete buttons)
   const up = computeUpcoming7();
   dom.upBills.textContent = formatCurrency(up.sumExp);
   dom.upIncome.textContent = formatCurrency(up.sumInc);
@@ -415,9 +415,13 @@ function render(){
     const sign = x.type==='expense' ? '-' : '+';
     const col = x.type==='expense' ? 'style="color:#ff9c9c"' : 'style="color:#6fe3b7"';
     const right = `<span ${col} class="right">${sign}${formatCurrency(x.amount).replace('$','')}</span>`;
-    const mid = x.type==='expense' ? escapeHtml(x.category||'') : escapeHtml(x.source||'');
-    return `<div style="display:flex; justify-content:space-between; gap:8px; padding:4px 0; border-bottom:1px solid #1a2030">
-      <span>${escapeHtml(x.date||'')} &nbsp; ${mid}</span>${right}
+    const label = x.type==='expense' ? escapeHtml(x.category||'') : escapeHtml(x.source||'');
+    const actions = `<div style="display:flex; gap:6px">
+      <button class="btn btn-ghost" data-act="del" data-type="${x.type}" data-id="${x.id}">Delete</button>
+    </div>`;
+    return `<div style="display:flex; justify-content:space-between; gap:8px; padding:6px 0; border-bottom:1px solid #1a2030">
+      <span>${escapeHtml(x.date||'')} &nbsp; ${label}</span>
+      <div style="display:flex; gap:10px; align-items:center">${right}${actions}</div>
     </div>`;
   }).join('') : '<div class="muted">No scheduled items in the next 7 days.</div>';
 
@@ -563,14 +567,36 @@ function init(){
     const file=e.target.files[0]; if(!file) return;
     try{ const text=await file.text(); const obj=JSON.parse(text);
       if(!obj || !Array.isArray(obj.incomes) || !Array.isArray(obj.expenses)) throw new Error('Invalid format');
-      // migrate old keys if needed
-      state={version:'1.1', settings: obj.settings||state.settings, incomes:obj.incomes.map(x=>({...x, scheduled: !!x.scheduled})), expenses:obj.expenses.map(x=>({...x, scheduled: !!x.scheduled}))};
+      state={version:'1.1.1', settings: obj.settings||state.settings, incomes:obj.incomes.map(x=>({...x, scheduled: !!x.scheduled})), expenses:obj.expenses.map(x=>({...x, scheduled: !!x.scheduled}))};
       saveState(); render(); toast('Imported data');
     }catch(err){ alert('Import failed: '+(err.message||err)); } finally { e.target.value=''; }
   });
+
+  // TRUE RESET: clear transactions, keep settings
   dom.resetBtn.addEventListener('click', ()=>{
-    if(!confirm('This will erase ALL budgeting data. Continue?')) return;
-    localStorage.removeItem(LS_KEY); state=seed(); saveState(); render(); toast('All data reset');
+    if (!confirm('This will erase ALL budgeting data. Continue?')) return;
+    const settings = state.settings || { payFreq:'biweekly', seedPayday: toISO(addDays(new Date(), 14)) };
+    state = { version:'1.1.1', settings, incomes:[], expenses:[] };
+    saveState();
+    render();
+    toast('All data cleared');
+  });
+
+  // Upcoming list actions (Delete scheduled item)
+  dom.upcomingList.addEventListener('click', (e)=>{
+    const btn = e.target.closest('button[data-act]');
+    if (!btn) return;
+    const act = btn.getAttribute('data-act');     // 'del'
+    const id  = btn.getAttribute('data-id');      // item id
+    const typ = btn.getAttribute('data-type');    // 'income' | 'expense'
+    if (act === 'del') {
+      if (!confirm('Delete this scheduled item?')) return;
+      if (typ === 'income') state.incomes = state.incomes.filter(x => x.id !== id);
+      else state.expenses = state.expenses.filter(x => x.id !== id);
+      saveState();
+      render();
+      toast('Scheduled item deleted');
+    }
   });
 
   // What-if & calculator
