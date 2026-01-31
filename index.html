@@ -3,15 +3,13 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>My Budget v1.4.3</title>
+<title>My Budget v1.4.1</title>
 <link rel="manifest" href="./manifest.webmanifest">
 <meta name="theme-color" content="#f7f8fb" />
 <link rel="icon" href="./icon-192.png" sizes="192x192">
 <link rel="apple-touch-icon" href="./icon-192.png">
 <!--
-v1.4.3 changes:
-- Fixed navigation, removed duplicate KPI cards, converted Goal/Transaction flows to working modals, and simplified menu.
-- Fixed Add Transaction validation to reject blank/invalid/zero amounts.
+v1.4.1 changes:
 - Fixed parseAmount handling for invalid input (test + logic alignment).
 - CSV: Debit/Credit mode now treats Debit as ABS(outflow). Works even if your bank exports negative debits. One-pass import + Undo.
 - Home: pay-period navigation moved to the sticky top app bar.
@@ -35,11 +33,9 @@ Notes:
   .wrap{max-width:1200px; margin:0 auto; padding:18px 18px 40px}
   header.appbar{position:sticky; top:0; z-index:5; background:rgba(247,248,251,.95);
     backdrop-filter: blur(6px); padding:12px 16px; border-bottom:1px solid var(--border); display:flex; gap:12px; align-items:center; justify-content:space-between}
-  .menu-wrap{position:relative}
-  .menu-btn{width:auto; padding:8px 14px}
-  .menu-dropdown{position:absolute; top:calc(100% + 8px); left:0; background:#fff; border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow); min-width:180px; padding:8px; display:flex; flex-direction:column; gap:6px; z-index:10}
-  .menu-dropdown button{width:100%; text-align:left; padding:8px 10px; border-radius:10px; border:1px solid transparent; background:#fff; cursor:pointer}
-  .menu-dropdown button.active{background:#111827; color:#fff}
+  .tabs{display:flex; gap:8px; flex-wrap:wrap}
+  .tab{padding:8px 12px; border:1px solid var(--border); background:#fff; border-radius:999px; cursor:pointer; color:#334155}
+  .tab.active{background:#111827; color:#fff; border-color:#111827}
   .header-right{display:flex; gap:8px; align-items:center}
   .nav-btn{background:#fff;border:1px solid var(--border);border-radius:999px;padding:6px 10px;cursor:pointer}
   .pill{padding:8px 12px; border:1px solid var(--border); border-radius:999px; background:#fff; box-shadow:var(--shadow); display:inline-flex; gap:8px; align-items:center}
@@ -76,12 +72,10 @@ Notes:
   .row-3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px}
   .actions{display:flex; gap:10px; margin-top:8px}
   .btn{cursor:pointer; border-radius:999px; border:1px solid var(--border); background:#fff; padding:8px 14px}
-  .btn.active{background:#111827; color:#fff; border-color:#111827}
   .btn-primary{background:var(--accent); border-color:var(--accent); color:#fff}
   .btn-ghost{background:#fff; border:1px solid var(--border); color:#111827}
   .btn-danger{background:#fee2e2; border:1px solid #fecaca; color:#991b1b}
   .btn-sm{padding:6px 10px; font-size:.85rem}
-  .error{color:#b91c1c; font-size:.85rem; margin-top:6px; display:none}
   .badges{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
   .badge{background:#f8fafc; border:1px solid var(--border); border-radius:999px; padding:6px 10px; font-variant-numeric: tabular-nums; color:#334155}
   table{width:100%; border-collapse:collapse; border:1px solid var(--border); border-radius:10px; overflow:hidden}
@@ -113,63 +107,14 @@ Notes:
   .glance-row:last-child{border-bottom:none}
   .glance-metrics{display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin:10px 0}
   .glance-metrics div{background:#f8fafc; border:1px solid var(--border); border-radius:10px; padding:8px; text-align:center; font-size:.85rem}
-  .page-header{display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; padding:10px 0 4px}
-  .page-header h1{margin:0; font-size:2rem}
-  .page-header p{margin:6px 0 0; color:var(--muted)}
-  .goals-summary{display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap}
-  .progress-bar{height:10px; background:#e5e7eb; border-radius:999px; overflow:hidden}
-  .progress-fill{height:100%; background:var(--accent); border-radius:999px}
-  .goals-grid{display:grid; gap:16px; grid-template-columns:repeat(3, minmax(220px, 1fr))}
-  .goal-card{position:relative; padding:16px; border-radius:16px; background:#fff; border:1px solid var(--border); box-shadow:var(--shadow)}
-  .goal-card .goal-actions{position:absolute; top:12px; right:12px; display:flex; gap:8px}
-  .icon-pill{width:40px; height:40px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:1.1rem}
-  .goal-meta{display:flex; align-items:center; gap:12px}
-  .goal-type{font-size:.75rem; text-transform:uppercase; letter-spacing:.08em; color:var(--muted)}
-  .goal-amount{font-size:1.4rem; font-weight:700; margin:8px 0}
-  .goal-remaining{display:flex; justify-content:space-between; font-size:.85rem; color:var(--muted)}
-  .goal-helper{background:#f8fafc; border:1px dashed var(--border); border-radius:12px; padding:10px; font-size:.85rem; color:#475569; margin:10px 0}
-  .pill-btn{padding:6px 12px; border-radius:999px; border:1px solid var(--border); background:#fff; cursor:pointer}
-  .pill-btn.active{background:#111827; color:#fff; border-color:#111827}
-  .insights-tabs{display:flex; gap:10px; flex-wrap:wrap; margin:12px 0 20px}
-  .insights-tab{display:flex; gap:6px; align-items:center; padding:6px 12px; border-radius:999px; border:1px solid var(--border); background:#fff; cursor:pointer; font-size:.9rem}
-  .insights-tab.active{background:#111827; color:#fff; border-color:#111827}
-  .insights-grid{display:grid; gap:16px; grid-template-columns:1fr 1fr}
-  .kpi-row{display:grid; gap:16px; grid-template-columns:repeat(4, minmax(200px, 1fr)); margin-top:16px}
-  .kpi-mini{background:#fff; border:1px solid var(--border); border-radius:14px; padding:14px; box-shadow:var(--shadow)}
-  .kpi-mini .label{font-size:.8rem; color:var(--muted)}
-  .kpi-mini .value{font-size:1.3rem; font-weight:700; margin-top:6px}
-  .whatif-row{display:grid; gap:16px; grid-template-columns:1fr 1fr}
-  .whatif-output{display:grid; gap:12px; margin-top:16px}
-  .whatif-output .output-box{display:flex; align-items:center; justify-content:space-between; padding:12px 14px; border-radius:12px; border:1px solid var(--border); background:#f8fafc}
-  .slider-label{display:flex; align-items:center; justify-content:space-between; font-size:.9rem; color:#475569}
-  .modal-overlay{position:fixed; inset:0; background:rgba(15,23,42,.55); display:none; align-items:center; justify-content:center; padding:20px; z-index:50}
-  .modal{background:#fff; border-radius:16px; padding:20px; width:min(520px, 100%); box-shadow:var(--shadow); position:relative}
-  .modal h3{margin:0 0 6px}
-  .modal .close-btn{position:absolute; top:12px; right:12px; border:none; background:transparent; font-size:1.2rem; cursor:pointer}
-  .modal .modal-actions{display:flex; gap:12px; justify-content:flex-end; margin-top:16px}
-  .segmented{display:flex; background:#f3f4f6; padding:4px; border-radius:999px; gap:4px}
-  .segmented button{border:none; background:transparent; padding:8px 16px; border-radius:999px; cursor:pointer}
-  .segmented button.active{background:#fff; box-shadow:var(--shadow)}
-  .toggle-row{display:flex; align-items:center; justify-content:space-between; gap:12px}
-  .toggle-switch{position:relative; width:42px; height:24px}
-  .toggle-switch input{opacity:0; width:0; height:0}
-  .toggle-slider{position:absolute; inset:0; background:#e5e7eb; border-radius:999px; transition:.2s}
-  .toggle-slider:before{content:""; position:absolute; width:18px; height:18px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.2s; box-shadow:0 2px 6px rgba(15,23,42,.2)}
-  .toggle-switch input:checked + .toggle-slider{background:var(--accent)}
-  .toggle-switch input:checked + .toggle-slider:before{transform:translateX(18px)}
-  .priority-group{display:flex; gap:8px}
-  .priority-group button{flex:1}
   @media (max-width: 1100px){ .kpi-grid{grid-template-columns:repeat(2, minmax(180px, 1fr));} }
-  @media (max-width: 900px){ .home-grid{grid-template-columns:1fr;} .insights-grid{grid-template-columns:1fr;} }
+  @media (max-width: 900px){ .home-grid{grid-template-columns:1fr;} }
   @media (max-width: 700px){
     .row, .row-3{grid-template-columns:1fr}
     .home-hero{align-items:flex-start}
     .kpi-grid{grid-template-columns:1fr}
     .bar-row{grid-template-columns:1fr}
     .glance-metrics{grid-template-columns:1fr}
-    .goals-grid{grid-template-columns:1fr}
-    .kpi-row{grid-template-columns:1fr}
-    .whatif-row{grid-template-columns:1fr}
   }
   .summary-row{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:8px}
   /* Calendar */
@@ -189,15 +134,14 @@ Notes:
 <body>
 <div class="wrap">
   <header class="appbar">
-    <div class="menu-wrap">
-      <button class="btn btn-ghost menu-btn" id="menuBtn" type="button" aria-haspopup="true" aria-expanded="false">Menu ▾</button>
-      <div class="menu-dropdown hide" id="menuDropdown" role="menu">
-        <button type="button" role="menuitem" data-tab="home" class="active">Home</button>
-        <button type="button" role="menuitem" data-tab="transactions">Transactions</button>
-        <button type="button" role="menuitem" data-tab="calendar">Calendar</button>
-        <button type="button" role="menuitem" data-tab="insights">Insights</button>
-        <button type="button" role="menuitem" data-tab="goals">Goals</button>
-      </div>
+    <div class="tabs" role="tablist" aria-label="Navigation">
+      <button class="tab active" data-tab="home" role="tab" aria-selected="true">Home</button>
+      <button class="tab" data-tab="goals" role="tab">Goals</button>
+      <button class="tab" data-tab="insights" role="tab">Insights</button>
+      <button class="tab" data-tab="transactions" role="tab">Transactions</button>
+      <button class="tab" data-tab="calendar" role="tab">Calendar</button>
+      <button class="tab" data-tab="tools" role="tab">Tools</button>
+      <button class="tab" data-tab="templates" role="tab">Templates</button>
     </div>
     <div class="header-right" id="appbarNav" style="display:none">
       <button class="nav-btn" id="appPrev" title="Previous pay period">◀</button>
@@ -243,6 +187,70 @@ Notes:
           <div class="kpi-label">Daily burn</div>
           <div class="kpi-value" id="dailyBurn">$0.00</div>
           <div class="kpi-sub">Average spend per day</div>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon">💹</div>
+        <div>
+          <div class="kpi-label">Savings rate</div>
+          <div class="kpi-value" id="savingsRate">0%</div>
+          <div class="kpi-sub">Net vs income</div>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon">📉</div>
+        <div>
+          <div class="kpi-label">Debt pressure</div>
+          <div class="kpi-value" id="debtPressure">0%</div>
+          <div class="kpi-sub">Spending vs income</div>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon">💹</div>
+        <div>
+          <div class="kpi-label">Savings rate</div>
+          <div class="kpi-value" id="savingsRate">0%</div>
+          <div class="kpi-sub">Net vs income</div>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon">📉</div>
+        <div>
+          <div class="kpi-label">Debt pressure</div>
+          <div class="kpi-value" id="debtPressure">0%</div>
+          <div class="kpi-sub">Spending vs income</div>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon">💹</div>
+        <div>
+          <div class="kpi-label">Savings rate</div>
+          <div class="kpi-value" id="savingsRate">0%</div>
+          <div class="kpi-sub">Net vs income</div>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon">📉</div>
+        <div>
+          <div class="kpi-label">Debt pressure</div>
+          <div class="kpi-value" id="debtPressure">0%</div>
+          <div class="kpi-sub">Spending vs income</div>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon">💹</div>
+        <div>
+          <div class="kpi-label">Savings rate</div>
+          <div class="kpi-value" id="savingsRate">0%</div>
+          <div class="kpi-sub">Net vs income</div>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon">📉</div>
+        <div>
+          <div class="kpi-label">Debt pressure</div>
+          <div class="kpi-value" id="debtPressure">0%</div>
+          <div class="kpi-sub">Spending vs income</div>
         </div>
       </div>
       <div class="kpi-card">
@@ -353,262 +361,354 @@ Notes:
       <button class="btn btn-primary" id="newGoalBtn" type="button">+ New Goal</button>
     </div>
 
-    <section class="card">
-      <div class="card-body">
-        <div class="goals-summary">
-          <div>
-            <div class="muted">Total Progress</div>
-            <div class="goal-amount"><span id="totalGoalsSaved">$0</span> <span class="muted">/ <span id="totalGoalsTarget">$0</span></span></div>
+    <div class="home-grid">
+      <div>
+        <section class="card">
+          <div class="card-header">
+            <h2>Cash Flow Trend</h2>
+            <span class="muted">Last 6 weeks</span>
           </div>
-          <div class="right">
-            <div class="goal-amount" id="totalGoalsPercent">0%</div>
-            <div class="muted">complete</div>
+          <div class="card-body">
+            <div class="chart-area" id="cashflowChart" aria-label="Cash flow trend chart"></div>
           </div>
-        </div>
-        <div class="progress-bar" style="margin-top:12px">
-          <div class="progress-fill" id="totalGoalsBar" style="width:0%"></div>
-        </div>
-      </div>
-    </section>
+        </section>
 
-    <div class="goals-grid" id="goalsGrid"></div>
+        <section class="card">
+          <div class="card-header">
+            <h2>Spending by Category</h2>
+            <span class="muted">This month</span>
+          </div>
+          <div class="card-body">
+            <div id="categoryChart"></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <h2>Recent Transactions</h2>
+            <button class="btn btn-ghost btn-sm" id="recentAddBtn" type="button">+ Add</button>
+          </div>
+          <div class="card-body">
+            <div class="transactions-list" id="recentTransactions"></div>
+          </div>
+        </section>
+      </div>
+
+      <div>
+        <section class="card">
+          <div class="card-header">
+            <h2>This week’s insight</h2>
+          </div>
+          <div class="card-body">
+            <p class="muted" id="insightSummary">Add transactions to unlock weekly insights.</p>
+            <div class="insight-box">
+              <div class="insight-label">What matters</div>
+              <div id="insightWhatMatters">—</div>
+            </div>
+            <div class="insight-box">
+              <div class="insight-label">Suggested action</div>
+              <div id="insightAction">—</div>
+            </div>
+            <div class="mini-help" id="wkTrend">vs 4-wk avg: —</div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <h2>Month at a Glance</h2>
+          </div>
+          <div class="card-body">
+            <div class="glance-row"><span>Income</span><strong id="monthIncome">$0.00</strong></div>
+            <div class="glance-row"><span>Spending</span><strong id="monthSpending">$0.00</strong></div>
+            <div class="glance-row"><span>Projected end</span><strong id="monthProjected">$0.00</strong></div>
+            <div class="glance-row"><span>Projected to payday</span><strong id="projectedToPayday">$0.00</strong></div>
+            <div class="muted" style="margin-top:10px">Next 7 days</div>
+            <div class="glance-metrics">
+              <div>Income<br><strong id="upIncome">$0.00</strong></div>
+              <div>Bills<br><strong id="upBills">$0.00</strong></div>
+              <div>Net<br><strong id="upNet">$0.00</strong></div>
+            </div>
+            <div class="upcoming-list" id="upcomingList" aria-live="polite"></div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div class="summary-row" id="payPeriodHeader" style="display:none">
+      <button class="nav-btn" id="prevPeriod" aria-label="Previous pay period">◀</button>
+      <div class="badge" id="periodLabel">—</div>
+      <button class="nav-btn" id="nextPeriod" aria-label="Next pay period">▶</button>
+    </div>
   </section>
 
-  <!-- INSIGHTS -->
-  <section id="tab-insights" class="hide">
+  <!-- GOALS -->
+  <section id="tab-goals" class="hide">
     <div class="page-header">
       <div>
-        <h1>Insights &amp; Reports</h1>
-        <p>Understand your money patterns and plan ahead</p>
+        <h1>Your Goals</h1>
+        <p>Track progress toward what matters most</p>
       </div>
+      <button class="btn btn-primary" id="newGoalBtn" type="button">+ New Goal</button>
     </div>
 
-    <div class="insights-tabs">
-      <button class="insights-tab active" data-insights-tab="weekly">Weekly Insights</button>
-      <button class="insights-tab" data-insights-tab="trends">Trends</button>
-      <button class="insights-tab" data-insights-tab="whatif">What If</button>
-    </div>
-
-    <div id="insights-weekly">
-      <section class="card">
-        <div class="card-body">
-          <div class="goal-meta">
-            <div class="icon-pill" style="background:#e0f2fe">💡</div>
-            <div>
-              <div style="font-weight:600">Weekly insight</div>
-              <div class="muted">Personalized based on your latest activity</div>
-            </div>
-          </div>
-          <p id="weeklyInsightText" style="margin-top:12px">Add more transactions to unlock detailed insights.</p>
-        </div>
-      </section>
-    </div>
-
-    <div id="insights-trends" class="hide">
-      <div class="insights-grid">
+    <div class="home-grid">
+      <div>
         <section class="card">
           <div class="card-header">
-            <h2>Monthly Spending</h2>
+            <h2>Cash Flow Trend</h2>
+            <span class="muted">Last 6 weeks</span>
           </div>
           <div class="card-body">
-            <div class="chart-area" id="monthlySpendingChart" aria-label="Monthly spending chart"></div>
-            <div class="mini-help" id="monthlyTrendNote">Same as last month</div>
+            <div class="chart-area" id="cashflowChart" aria-label="Cash flow trend chart"></div>
           </div>
         </section>
+
         <section class="card">
           <div class="card-header">
-            <h2>Where Your Money Goes</h2>
+            <h2>Spending by Category</h2>
+            <span class="muted">This month</span>
           </div>
           <div class="card-body">
-            <div class="home-grid" style="grid-template-columns:140px 1fr; align-items:center">
-              <div class="chart-area" style="height:140px" id="insightsCategoryChart" aria-label="Category breakdown"></div>
-              <div id="insightsCategoryList"></div>
-            </div>
+            <div id="categoryChart"></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <h2>Recent Transactions</h2>
+            <button class="btn btn-ghost btn-sm" id="recentAddBtn" type="button">+ Add</button>
+          </div>
+          <div class="card-body">
+            <div class="transactions-list" id="recentTransactions"></div>
           </div>
         </section>
       </div>
-    </div>
 
-    <div id="insights-whatif" class="hide">
-      <section class="card">
-        <div class="card-body">
-          <div class="goal-meta">
-            <div class="icon-pill" style="background:#e0f2fe">🧮</div>
-            <div>
-              <div style="font-weight:600">What If Scenario</div>
-              <div class="muted">See the impact of saving more each month</div>
-            </div>
+      <div>
+        <section class="card">
+          <div class="card-header">
+            <h2>This week’s insight</h2>
           </div>
-          <div style="margin-top:16px">
-            <div class="slider-label"><span>Save extra per month</span><strong id="whatIfExtraLabel">$0</strong></div>
-            <input type="range" id="whatIfExtra" min="0" max="1000" step="50" value="0">
-            <div class="row" style="margin-top:4px">
-              <span class="muted">$0</span>
-              <span class="right muted">$1,000</span>
+          <div class="card-body">
+            <p class="muted" id="insightSummary">Add transactions to unlock weekly insights.</p>
+            <div class="insight-box">
+              <div class="insight-label">What matters</div>
+              <div id="insightWhatMatters">—</div>
             </div>
+            <div class="insight-box">
+              <div class="insight-label">Suggested action</div>
+              <div id="insightAction">—</div>
+            </div>
+            <div class="mini-help" id="wkTrend">vs 4-wk avg: —</div>
           </div>
-          <div style="margin-top:16px">
-            <div class="slider-label"><span>Time horizon</span><strong id="whatIfHorizonLabel">12 months</strong></div>
-            <input type="range" id="whatIfHorizon" min="3" max="36" step="3" value="12">
-            <div class="row" style="margin-top:4px">
-              <span class="muted">3 months</span>
-              <span class="right muted">3 years</span>
-            </div>
-          </div>
-          <div class="whatif-output">
-            <div class="output-box">
-              <span>New monthly savings</span>
-              <strong id="whatIfMonthly">$0</strong>
-            </div>
-            <div class="output-box">
-              <span>Total in <span id="whatIfMonthsLabel">12</span> months</span>
-              <strong id="whatIfTotal">$0</strong>
-            </div>
-          </div>
-        </div>
-      </section>
-    </div>
+        </section>
 
-    <div class="kpi-row">
-      <div class="kpi-mini">
-        <div class="label">Total Transactions</div>
-        <div class="value" id="insightsTotalTx">0</div>
-      </div>
-      <div class="kpi-mini">
-        <div class="label">Active Goals</div>
-        <div class="value" id="insightsActiveGoals">0</div>
-      </div>
-      <div class="kpi-mini">
-        <div class="label">This Month Income</div>
-        <div class="value" id="insightsIncome">$0</div>
-      </div>
-      <div class="kpi-mini">
-        <div class="label">This Month Spending</div>
-        <div class="value" id="insightsSpending">$0</div>
+        <section class="card">
+          <div class="card-header">
+            <h2>Month at a Glance</h2>
+          </div>
+          <div class="card-body">
+            <div class="glance-row"><span>Income</span><strong id="monthIncome">$0.00</strong></div>
+            <div class="glance-row"><span>Spending</span><strong id="monthSpending">$0.00</strong></div>
+            <div class="glance-row"><span>Projected end</span><strong id="monthProjected">$0.00</strong></div>
+            <div class="glance-row"><span>Projected to payday</span><strong id="projectedToPayday">$0.00</strong></div>
+            <div class="muted" style="margin-top:10px">Next 7 days</div>
+            <div class="glance-metrics">
+              <div>Income<br><strong id="upIncome">$0.00</strong></div>
+              <div>Bills<br><strong id="upBills">$0.00</strong></div>
+              <div>Net<br><strong id="upNet">$0.00</strong></div>
+            </div>
+            <div class="upcoming-list" id="upcomingList" aria-live="polite"></div>
+          </div>
+        </section>
       </div>
     </div>
 
-    <section class="card" style="margin-top:20px">
-      <div class="card-header">
-        <h2>Tools &amp; Templates</h2>
-      </div>
-      <div class="card-body">
-        <div class="actions" style="margin-bottom:12px">
-          <button class="btn btn-ghost active" type="button" data-insights-panel="tools">Tools</button>
-          <button class="btn btn-ghost" type="button" data-insights-panel="templates">Templates</button>
-        </div>
-        <div id="insightsToolsPanel">
-          <div id="tab-tools">
-            <div class="card">
-              <h2>Import / Export</h2>
-              <div class="section-body">
-                <div class="actions">
-                  <button id="exportBtn" class="btn btn-ghost">Export JSON</button>
-                  <label for="importFile" class="btn btn-ghost" style="display:inline-flex; align-items:center; gap:8px; cursor:pointer">
-                    Import JSON <input id="importFile" type="file" accept="application/json" style="display:none" />
-                  </label>
-                  <label for="csvFile" class="btn btn-ghost" style="display:inline-flex; align-items:center; gap:8px; cursor:pointer">
-                    Import CSV <input id="csvFile" type="file" accept=".csv,text/csv" style="display:none" />
-                  </label>
-                  <button id="undoImportBtn" class="btn btn-ghost" title="Undo last import" disabled>Undo Last Import</button>
-                  <button id="resetBtn" class="btn btn-danger">⚠ Reset Data</button>
-                </div>
-              </div>
-            </div>
+    <div class="summary-row" id="payPeriodHeader" style="display:none">
+      <button class="nav-btn" id="prevPeriod" aria-label="Previous pay period">◀</button>
+      <div class="badge" id="periodLabel">—</div>
+      <button class="nav-btn" id="nextPeriod" aria-label="Next pay period">▶</button>
+    </div>
+  </section>
 
-            <div class="card">
-              <h2>Calculators</h2>
-              <div class="section-body">
-                <div class="row">
-                  <div>
-                    <label for="whatIfNumber">What-If amount</label>
-                    <input id="whatIfNumber" type="number" min="0" step="1" inputmode="decimal" />
-                    <div class="mini-help">Projected Balance (Net − What-If): <strong id="projectedBalance">$0.00</strong></div>
-                  </div>
-                  <div>
-                    <label for="calcAmount">Quick Calculator: Planned purchase</label>
-                    <input id="calcAmount" type="number" min="0" step="1" inputmode="decimal" placeholder="e.g., 250" />
-                    <div class="mini-help">New Balance (Net − Planned): <strong id="calcResult">$0.00</strong></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="card">
-              <h2>Sync (E2EE via GitHub Gist)</h2>
-              <div class="section-body">
-                <div class="mini-help">Bring your own token (gist scope). We store only encrypted data.</div>
-                <div class="row">
-                  <div>
-                    <label for="syncPass">Passphrase (don’t lose this)</label>
-                    <input id="syncPass" type="password" placeholder="Your passphrase" />
-                  </div>
-                  <div>
-                    <label for="syncToken">GitHub Token (gist scope)</label>
-                    <input id="syncToken" type="password" placeholder="ghp_..." />
-                  </div>
-                </div>
-                <div class="row">
-                  <div>
-                    <label for="syncId">Sync ID (Gist ID)</label>
-                    <input id="syncId" type="text" placeholder="e.g., a1b2c3d4..." />
-                  </div>
-                  <div class="actions" style="align-items:end">
-                    <button id="btnCreateGist" class="btn btn-primary" type="button" style="width:auto">Create New Sync</button>
-                    <button id="btnConnect" class="btn btn-ghost" type="button" style="width:auto">Connect</button>
-                    <button id="btnSyncNow" class="btn btn-ghost" type="button" style="width:auto" disabled>Sync Now</button>
-                    <button id="btnSignOut" class="btn btn-danger" type="button" style="width:auto">Sign out of Sync</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div id="insightsTemplatesPanel" class="hide">
-          <div id="tab-templates">
-            <div class="card">
-              <h2>Recurring Expense Templates</h2>
-              <div class="section-body">
-                <form id="tplForm">
-                  <fieldset>
-                    <legend>Create / Edit Template</legend>
-                    <div class="row-3">
-                      <div><label for="tplLabel">Label (e.g., Rent)</label><input id="tplLabel" type="text" required /></div>
-                      <div><label for="tplAmount">Amount</label><input id="tplAmount" type="number" min="0" step="0.01" inputmode="decimal" required /></div>
-                      <div><label for="tplFreq">Frequency</label>
-                        <select id="tplFreq">
-                          <option value="weekly">Weekly</option>
-                          <option value="biweekly">Biweekly</option>
-                          <option value="semimonthly">Semi-monthly (1st & 15th)</option>
-                          <option value="monthly">Monthly</option>
-                        </select>
-                      </div>
-                    </div>
-                    <div id="tplAnchors" class="row-3" style="margin-top:8px">
-                      <div id="anchWeekly" class="hide"><label for="tplWeekday">Weekday</label>
-                        <select id="tplWeekday"><option value="0">Sunday</option><option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option></select>
-                      </div>
-                      <div id="anchBiweekly" class="hide"><label for="tplSeedDate">Seed date</label><input id="tplSeedDate" type="date" /></div>
-                      <div id="anchMonthly" class="hide"><label for="tplMonthDay">Day of month</label><input id="tplMonthDay" type="number" min="1" max="31" /></div>
-                    </div>
-                    <div class="row">
-                      <div><label for="tplStart">Start date</label><input id="tplStart" type="date" /></div>
-                      <div><label for="tplNotes">Notes (optional)</label><input id="tplNotes" type="text" /></div>
-                    </div>
-                    <div class="actions"><button class="btn btn-primary" id="tplSave" type="submit">Save Template</button><button class="btn btn-ghost" id="tplCancel" type="button">Cancel</button></div>
-                    <div id="tplErr" class="error" style="display:none">Please fill the highlighted fields.</div>
-                  </fieldset>
-                </form>
-                <div class="card" style="margin:12px 0 0">
-                  <h2>Templates List</h2>
-                  <div class="section-body" id="tplList" class="muted">No templates yet.</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+  <!-- GOALS -->
+  <section id="tab-goals" class="hide">
+    <div class="page-header">
+      <div>
+        <h1>Your Goals</h1>
+        <p>Track progress toward what matters most</p>
       </div>
-    </section>
+      <button class="btn btn-primary" id="newGoalBtn" type="button">+ New Goal</button>
+    </div>
+
+    <div class="home-grid">
+      <div>
+        <section class="card">
+          <div class="card-header">
+            <h2>Cash Flow Trend</h2>
+            <span class="muted">Last 6 weeks</span>
+          </div>
+          <div class="card-body">
+            <div class="chart-area" id="cashflowChart" aria-label="Cash flow trend chart"></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <h2>Spending by Category</h2>
+            <span class="muted">This month</span>
+          </div>
+          <div class="card-body">
+            <div id="categoryChart"></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <h2>Recent Transactions</h2>
+            <button class="btn btn-ghost btn-sm" id="recentAddBtn" type="button">+ Add</button>
+          </div>
+          <div class="card-body">
+            <div class="transactions-list" id="recentTransactions"></div>
+          </div>
+        </section>
+      </div>
+
+      <div>
+        <section class="card">
+          <div class="card-header">
+            <h2>This week’s insight</h2>
+          </div>
+          <div class="card-body">
+            <p class="muted" id="insightSummary">Add transactions to unlock weekly insights.</p>
+            <div class="insight-box">
+              <div class="insight-label">What matters</div>
+              <div id="insightWhatMatters">—</div>
+            </div>
+            <div class="insight-box">
+              <div class="insight-label">Suggested action</div>
+              <div id="insightAction">—</div>
+            </div>
+            <div class="mini-help" id="wkTrend">vs 4-wk avg: —</div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <h2>Month at a Glance</h2>
+          </div>
+          <div class="card-body">
+            <div class="glance-row"><span>Income</span><strong id="monthIncome">$0.00</strong></div>
+            <div class="glance-row"><span>Spending</span><strong id="monthSpending">$0.00</strong></div>
+            <div class="glance-row"><span>Projected end</span><strong id="monthProjected">$0.00</strong></div>
+            <div class="glance-row"><span>Projected to payday</span><strong id="projectedToPayday">$0.00</strong></div>
+            <div class="muted" style="margin-top:10px">Next 7 days</div>
+            <div class="glance-metrics">
+              <div>Income<br><strong id="upIncome">$0.00</strong></div>
+              <div>Bills<br><strong id="upBills">$0.00</strong></div>
+              <div>Net<br><strong id="upNet">$0.00</strong></div>
+            </div>
+            <div class="upcoming-list" id="upcomingList" aria-live="polite"></div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div class="summary-row" id="payPeriodHeader" style="display:none">
+      <button class="nav-btn" id="prevPeriod" aria-label="Previous pay period">◀</button>
+      <div class="badge" id="periodLabel">—</div>
+      <button class="nav-btn" id="nextPeriod" aria-label="Next pay period">▶</button>
+    </div>
+  </section>
+
+  <!-- GOALS -->
+  <section id="tab-goals" class="hide">
+    <div class="page-header">
+      <div>
+        <h1>Your Goals</h1>
+        <p>Track progress toward what matters most</p>
+      </div>
+      <button class="btn btn-primary" id="newGoalBtn" type="button">+ New Goal</button>
+    </div>
+
+    <div class="home-grid">
+      <div>
+        <section class="card">
+          <div class="card-header">
+            <h2>Cash Flow Trend</h2>
+            <span class="muted">Last 6 weeks</span>
+          </div>
+          <div class="card-body">
+            <div class="chart-area" id="cashflowChart" aria-label="Cash flow trend chart"></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <h2>Spending by Category</h2>
+            <span class="muted">This month</span>
+          </div>
+          <div class="card-body">
+            <div id="categoryChart"></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <h2>Recent Transactions</h2>
+            <button class="btn btn-ghost btn-sm" id="recentAddBtn" type="button">+ Add</button>
+          </div>
+          <div class="card-body">
+            <div class="transactions-list" id="recentTransactions"></div>
+          </div>
+        </section>
+      </div>
+
+      <div>
+        <section class="card">
+          <div class="card-header">
+            <h2>This week’s insight</h2>
+          </div>
+          <div class="card-body">
+            <p class="muted" id="insightSummary">Add transactions to unlock weekly insights.</p>
+            <div class="insight-box">
+              <div class="insight-label">What matters</div>
+              <div id="insightWhatMatters">—</div>
+            </div>
+            <div class="insight-box">
+              <div class="insight-label">Suggested action</div>
+              <div id="insightAction">—</div>
+            </div>
+            <div class="mini-help" id="wkTrend">vs 4-wk avg: —</div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <h2>Month at a Glance</h2>
+          </div>
+          <div class="card-body">
+            <div class="glance-row"><span>Income</span><strong id="monthIncome">$0.00</strong></div>
+            <div class="glance-row"><span>Spending</span><strong id="monthSpending">$0.00</strong></div>
+            <div class="glance-row"><span>Projected end</span><strong id="monthProjected">$0.00</strong></div>
+            <div class="glance-row"><span>Projected to payday</span><strong id="projectedToPayday">$0.00</strong></div>
+            <div class="muted" style="margin-top:10px">Next 7 days</div>
+            <div class="glance-metrics">
+              <div>Income<br><strong id="upIncome">$0.00</strong></div>
+              <div>Bills<br><strong id="upBills">$0.00</strong></div>
+              <div>Net<br><strong id="upNet">$0.00</strong></div>
+            </div>
+            <div class="upcoming-list" id="upcomingList" aria-live="polite"></div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div class="summary-row" id="payPeriodHeader" style="display:none">
+      <button class="nav-btn" id="prevPeriod" aria-label="Previous pay period">◀</button>
+      <div class="badge" id="periodLabel">—</div>
+      <button class="nav-btn" id="nextPeriod" aria-label="Next pay period">▶</button>
+    </div>
   </section>
 
   <!-- TRANSACTIONS -->
@@ -887,7 +987,6 @@ Notes:
     <div style="margin-top:12px">
       <label for="txnAmount">Amount</label>
       <input id="txnAmount" type="number" min="0" step="0.01" placeholder="0.00">
-      <div id="txnAmountErr" class="error">Enter a valid amount greater than 0.</div>
     </div>
     <div style="margin-top:12px">
       <label for="txnDesc">Description</label>
@@ -942,13 +1041,6 @@ const fmt=new Intl.NumberFormat(undefined,{style:'currency',currency:getLikelyCu
 function getLikelyCurrency(){try{new Intl.NumberFormat(undefined,{style:'currency',currency:'USD'}).formatToParts(1);return(Intl.NumberFormat().resolvedOptions().currency||'USD')}catch{return'USD'}}
 function formatCurrency(n){return fmt.format(Number(n||0))}
 function parseAmount(v){if(typeof v==='number')return v;if(!v&&v!==0)return 0;v=String(v).replace(/[^0-9,.\-]/g,'').replace(',', '.');const num=Number(v);return Number.isFinite(num)?num:0}
-function validateTxnAmount(raw){
-  const trimmed = String(raw ?? '').trim();
-  if (!trimmed) return { valid:false, amount:0 };
-  const amount = parseAmount(trimmed);
-  if (!Number.isFinite(amount) || amount <= 0) return { valid:false, amount:0 };
-  return { valid:true, amount };
-}
 function uid(){return Math.random().toString(36).slice(2)+Date.now().toString(36)}
 function nowIso(){return new Date().toISOString()}
 function todayStr(){return new Date().toISOString().slice(0,10)}
@@ -978,7 +1070,7 @@ function saveState(){localStorage.setItem(LS_KEY, JSON.stringify(state))}
 function loadGoals(){try{const raw=localStorage.getItem(GOALS_KEY); if(!raw) return []; const obj=JSON.parse(raw); return Array.isArray(obj)?obj:[];}catch{return []}}
 function saveGoals(){localStorage.setItem(GOALS_KEY, JSON.stringify(goals))}
 function seed(){
-  const s = { version:'1.4.3', settings:{payFreq:'biweekly', seedPayday: toISO(addDays(new Date(), 14))}, payPeriodOffset:0, incomes:[], expenses:[], templates:[], lastImportBatch:null, sync:{provider:null,gistId:null,token:null,keySalt:null,passHint:null,lastRev:0} };
+  const s = { version:'1.4.1', settings:{payFreq:'biweekly', seedPayday: toISO(addDays(new Date(), 14))}, payPeriodOffset:0, incomes:[], expenses:[], templates:[], lastImportBatch:null, sync:{provider:null,gistId:null,token:null,keySalt:null,passHint:null,lastRev:0} };
   s.incomes.push({id:uid(), date:toISO(addDays(new Date(), -10)), source:'Paycheck', amount:3200, scheduled:false, updatedAt:nowIso()});
   s.incomes.push({id:uid(), date:toISO(addDays(new Date(), -3)), source:'Freelance', amount:450, scheduled:false, updatedAt:nowIso()});
   s.expenses.push({id:uid(), date:toISO(addDays(new Date(), -9)), category:'Housing', amount:1200, notes:'Rent', scheduled:false, updatedAt:nowIso()});
@@ -1206,11 +1298,9 @@ const dom = {
   whatIfExtra: byId('whatIfExtra'), whatIfExtraLabel: byId('whatIfExtraLabel'),
   whatIfHorizon: byId('whatIfHorizon'), whatIfHorizonLabel: byId('whatIfHorizonLabel'),
   whatIfMonthly: byId('whatIfMonthly'), whatIfTotal: byId('whatIfTotal'), whatIfMonthsLabel: byId('whatIfMonthsLabel'),
-  insightsToolsPanel: byId('insightsToolsPanel'), insightsTemplatesPanel: byId('insightsTemplatesPanel'),
-  insightsPanelButtons: document.querySelectorAll('[data-insights-panel]'),
   // add transaction modal
   txnModalOverlay: byId('txnModalOverlay'), txnModalClose: byId('txnModalClose'), txnModalCancel: byId('txnModalCancel'),
-  txnModalAdd: byId('txnModalAdd'), txnTypeSwitch: byId('txnTypeSwitch'), txnAmount: byId('txnAmount'), txnAmountErr: byId('txnAmountErr'),
+  txnModalAdd: byId('txnModalAdd'), txnTypeSwitch: byId('txnTypeSwitch'), txnAmount: byId('txnAmount'),
   txnDesc: byId('txnDesc'), txnDate: byId('txnDate'), txnCategory: byId('txnCategory'), txnCategoryWrap: byId('txnCategoryWrap'),
   txnRecurring: byId('txnRecurring'),
   // weekly summary
@@ -1603,61 +1693,12 @@ function showDayDetails(iso){
 
 /* ====== Events ====== */
 function setActiveTab(tab){
-  dom.menuItems.forEach(b=>b.classList.toggle('active', b.getAttribute('data-tab')===tab));
+  dom.tabs.forEach(b=>b.classList.toggle('active', b.getAttribute('data-tab')===tab));
   Object.keys(dom.sections).forEach(k=>{ dom.sections[k].classList.toggle('hide', k!==tab); });
   dom.appbarNav.style.display = (tab==='home') ? '' : 'none';
   if (tab==='home') renderHome();
-  if (tab==='goals') renderGoals();
-  if (tab==='insights') renderInsights();
   if (tab==='transactions') renderTransactions();
   if (tab==='calendar') renderCalendar();
-  dom.menuDropdown.classList.add('hide');
-  dom.menuBtn.setAttribute('aria-expanded','false');
-}
-function setInsightsTab(tab){
-  dom.insightsTabs.forEach(btn=>btn.classList.toggle('active', btn.getAttribute('data-insights-tab')===tab));
-  if (dom.insightsWeekly) dom.insightsWeekly.classList.toggle('hide', tab!=='weekly');
-  if (dom.insightsTrends) dom.insightsTrends.classList.toggle('hide', tab!=='trends');
-  if (dom.insightsWhatif) dom.insightsWhatif.classList.toggle('hide', tab!=='whatif');
-}
-function openGoalModal(goal){
-  dom.goalModalOverlay.style.display='flex';
-  dom.goalModalOverlay.setAttribute('aria-hidden','false');
-  dom.goalName.value = goal ? goal.name : '';
-  dom.goalType.value = goal ? goal.type : 'General Savings';
-  dom.goalTarget.value = goal ? goal.targetAmount : '';
-  dom.goalCurrent.value = goal ? goal.currentAmount : '';
-  dom.goalDate.value = goal ? goal.targetDate : '';
-  dom.goalMonthly.value = goal ? goal.monthlyContribution : '';
-  const priority = goal ? goal.priority : 'medium';
-  dom.goalPriorityGroup.querySelectorAll('button').forEach(btn=>{
-    btn.classList.toggle('active', btn.dataset.priority===priority);
-  });
-  dom.goalModalCreate.textContent = goal ? 'Save Goal' : 'Create Goal';
-  dom.goalModalCreate.dataset.editingId = goal ? goal.id : '';
-}
-function closeGoalModal(){
-  dom.goalModalOverlay.style.display='none';
-  dom.goalModalOverlay.setAttribute('aria-hidden','true');
-  dom.goalModalCreate.dataset.editingId = '';
-}
-function openTxnModal(){
-  dom.txnModalOverlay.style.display='flex';
-  dom.txnModalOverlay.setAttribute('aria-hidden','false');
-  dom.txnAmount.value='';
-  dom.txnAmountErr.style.display='none';
-  dom.txnDesc.value='';
-  dom.txnDate.value=todayStr();
-  dom.txnCategory.value='';
-  dom.txnRecurring.checked=false;
-  dom.txnTypeSwitch.querySelectorAll('button').forEach((btn, idx)=>{
-    btn.classList.toggle('active', idx===0);
-  });
-  dom.txnCategoryWrap.style.display='';
-}
-function closeTxnModal(){
-  dom.txnModalOverlay.style.display='none';
-  dom.txnModalOverlay.setAttribute('aria-hidden','true');
 }
 function initTabs(){
   dom.menuBtn.addEventListener('click', ()=>{
@@ -1680,22 +1721,16 @@ function initTabs(){
 }
 function initHome(){
   if (dom.addTransactionBtn){
-    dom.addTransactionBtn.addEventListener('click', openTxnModal);
+    dom.addTransactionBtn.addEventListener('click', ()=>setActiveTab('transactions'));
   }
   if (dom.recentAddBtn){
-    dom.recentAddBtn.addEventListener('click', openTxnModal);
+    dom.recentAddBtn.addEventListener('click', ()=>setActiveTab('transactions'));
   }
   if (dom.setGoalBtn){
-    dom.setGoalBtn.addEventListener('click', ()=>{
-      setActiveTab('goals');
-      openGoalModal();
-    });
+    dom.setGoalBtn.addEventListener('click', ()=>{ setActiveTab('templates'); toast('Set up a recurring goal from templates.'); });
   }
   if (dom.runScenarioBtn){
-    dom.runScenarioBtn.addEventListener('click', ()=>{
-      setActiveTab('insights');
-      setInsightsTab('whatif');
-    });
+    dom.runScenarioBtn.addEventListener('click', ()=>{ setActiveTab('tools'); byId('whatIfNumber')?.focus(); });
   }
   // appbar nav buttons
   dom.appPrev.addEventListener('click', ()=>{ state.payPeriodOffset=(state.payPeriodOffset||0)-1; saveState(); renderHome(); });
@@ -1734,9 +1769,6 @@ function initGoals(){
   dom.newGoalBtn.addEventListener('click', ()=>openGoalModal());
   dom.goalModalClose.addEventListener('click', closeGoalModal);
   dom.goalModalCancel.addEventListener('click', closeGoalModal);
-  dom.goalModalOverlay.addEventListener('click', (e)=>{
-    if (e.target === dom.goalModalOverlay) closeGoalModal();
-  });
   dom.goalPriorityGroup.addEventListener('click', (e)=>{
     const btn = e.target.closest('button[data-priority]'); if(!btn) return;
     dom.goalPriorityGroup.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
@@ -1807,20 +1839,6 @@ function initInsights(){
       setInsightsTab(tab);
     });
   });
-  dom.insightsPanelButtons.forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      const panel = btn.getAttribute('data-insights-panel');
-      dom.insightsPanelButtons.forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
-      if (panel==='tools'){
-        dom.insightsToolsPanel.classList.remove('hide');
-        dom.insightsTemplatesPanel.classList.add('hide');
-      } else {
-        dom.insightsTemplatesPanel.classList.remove('hide');
-        dom.insightsToolsPanel.classList.add('hide');
-      }
-    });
-  });
   dom.whatIfExtra.addEventListener('input', updateWhatIf);
   dom.whatIfHorizon.addEventListener('input', updateWhatIf);
   setInsightsTab('weekly');
@@ -1828,9 +1846,6 @@ function initInsights(){
 function initTxnModal(){
   dom.txnModalClose.addEventListener('click', closeTxnModal);
   dom.txnModalCancel.addEventListener('click', closeTxnModal);
-  dom.txnModalOverlay.addEventListener('click', (e)=>{
-    if (e.target === dom.txnModalOverlay) closeTxnModal();
-  });
   dom.txnTypeSwitch.addEventListener('click', (e)=>{
     const btn = e.target.closest('button[data-txn-type]'); if(!btn) return;
     dom.txnTypeSwitch.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
@@ -1841,13 +1856,8 @@ function initTxnModal(){
   dom.txnModalAdd.addEventListener('click', ()=>{
     const activeBtn = dom.txnTypeSwitch.querySelector('button.active');
     const type = activeBtn?.dataset.txnType || 'expense';
-    const validation = validateTxnAmount(dom.txnAmount.value);
-    if (!validation.valid){
-      dom.txnAmountErr.style.display='block';
-      return;
-    }
-    dom.txnAmountErr.style.display='none';
-    const amt = validation.amount;
+    const amt = parseAmount(dom.txnAmount.value);
+    if (!Number.isFinite(amt) || amt<=0){ alert('Enter a valid amount.'); return; }
     const desc = dom.txnDesc.value.trim();
     const date = dom.txnDate.value || todayStr();
     const scheduled = dom.txnRecurring.checked;
@@ -1880,12 +1890,6 @@ function initTxnModal(){
       toast('Expense added');
     }
     closeTxnModal();
-  });
-  document.addEventListener('keydown', (e)=>{
-    if (e.key === 'Escape'){
-      if (dom.goalModalOverlay.style.display==='flex') closeGoalModal();
-      if (dom.txnModalOverlay.style.display==='flex') closeTxnModal();
-    }
   });
 }
 function initTransactions(){
@@ -2084,7 +2088,7 @@ function initTools(){
     try{ const text=await file.text(); const obj=JSON.parse(text);
       if(!obj || !Array.isArray(obj.incomes) || !Array.isArray(obj.expenses)) throw new Error('Invalid format');
       state={
-        version: obj.version||'1.4.3',
+        version: obj.version||'1.4.1',
         settings: obj.settings||state.settings,
         payPeriodOffset: obj.payPeriodOffset||0,
         incomes: obj.incomes.map(x=>({...x, scheduled: !!x.scheduled, updatedAt:x.updatedAt||nowIso()})),
@@ -2113,7 +2117,7 @@ function initTools(){
   dom.resetBtn.addEventListener('click', ()=>{
     if (!confirm('Erase ALL incomes/expenses (keep settings & templates)?')) return;
     const settings = state.settings, templates=state.templates, sync=state.sync;
-    state = { version:'1.4.3', settings, payPeriodOffset:0, incomes:[], expenses:[], templates, lastImportBatch:null, sync };
+    state = { version:'1.4.1', settings, payPeriodOffset:0, incomes:[], expenses:[], templates, lastImportBatch:null, sync };
     saveState();
     renderHome(); renderTransactions(); renderCalendar(); renderTemplates();
     toast('All transactions cleared');
@@ -2127,7 +2131,7 @@ function initTools(){
   dom.undoImportBtn.addEventListener('click', undoLastImport);
 }
 
-/* ====== CSV support (v1.4.3 DC fix) ====== */
+/* ====== CSV support (v1.4.1 DC fix) ====== */
 let _csvData = { headers:[], rows:[] };
 function handleCsvFile(e){
   const file=e.target.files[0]; if(!file) return;
@@ -2266,7 +2270,7 @@ function undoLastImport(){
   saveState(); renderHome(); renderTransactions(); renderCalendar(); toast(`Undid ${removed} imported rows`);
 }
 
-/* ====== Sync (updated for 1.4.3) ====== */
+/* ====== Sync (updated for 1.3.1) ====== */
 async function deriveKey(pass, salt){
   const enc=new TextEncoder();
   const keyMaterial=await crypto.subtle.importKey('raw', enc.encode(pass), {name:'PBKDF2'}, false, ['deriveKey']);
@@ -2362,7 +2366,7 @@ function initSync(){
         const tR=new Date((remote.syncUpdatedAt||remote.versionDate||0)).getTime();
         if (tR>tL) merged.settings = remote.settings||merged.settings;
       }
-      merged.version='1.4.3'; merged.syncUpdatedAt=nowIso();
+      merged.version='1.4.1'; merged.syncUpdatedAt=nowIso();
       const payload = await encryptJSON(merged, pass, state.sync.keySalt||null);
       await pushSync(id, token, payload);
       state = merged; saveState();
