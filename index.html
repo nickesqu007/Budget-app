@@ -253,6 +253,112 @@ Notes:
           <div class="kpi-sub">Spending vs income</div>
         </div>
       </div>
+      <div class="kpi-card">
+        <div class="kpi-icon">💹</div>
+        <div>
+          <div class="kpi-label">Savings rate</div>
+          <div class="kpi-value" id="savingsRate">0%</div>
+          <div class="kpi-sub">Net vs income</div>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon">📉</div>
+        <div>
+          <div class="kpi-label">Debt pressure</div>
+          <div class="kpi-value" id="debtPressure">0%</div>
+          <div class="kpi-sub">Spending vs income</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="home-grid">
+      <div>
+        <section class="card">
+          <div class="card-header">
+            <h2>Cash Flow Trend</h2>
+            <span class="muted">Last 6 weeks</span>
+          </div>
+          <div class="card-body">
+            <div class="chart-area" id="cashflowChart" aria-label="Cash flow trend chart"></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <h2>Spending by Category</h2>
+            <span class="muted">This month</span>
+          </div>
+          <div class="card-body">
+            <div id="categoryChart"></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <h2>Recent Transactions</h2>
+            <button class="btn btn-ghost btn-sm" id="recentAddBtn" type="button">+ Add</button>
+          </div>
+          <div class="card-body">
+            <div class="transactions-list" id="recentTransactions"></div>
+          </div>
+        </section>
+      </div>
+
+      <div>
+        <section class="card">
+          <div class="card-header">
+            <h2>This week’s insight</h2>
+          </div>
+          <div class="card-body">
+            <p class="muted" id="insightSummary">Add transactions to unlock weekly insights.</p>
+            <div class="insight-box">
+              <div class="insight-label">What matters</div>
+              <div id="insightWhatMatters">—</div>
+            </div>
+            <div class="insight-box">
+              <div class="insight-label">Suggested action</div>
+              <div id="insightAction">—</div>
+            </div>
+            <div class="mini-help" id="wkTrend">vs 4-wk avg: —</div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <h2>Month at a Glance</h2>
+          </div>
+          <div class="card-body">
+            <div class="glance-row"><span>Income</span><strong id="monthIncome">$0.00</strong></div>
+            <div class="glance-row"><span>Spending</span><strong id="monthSpending">$0.00</strong></div>
+            <div class="glance-row"><span>Projected end</span><strong id="monthProjected">$0.00</strong></div>
+            <div class="glance-row"><span>Projected to payday</span><strong id="projectedToPayday">$0.00</strong></div>
+            <div class="muted" style="margin-top:10px">Next 7 days</div>
+            <div class="glance-metrics">
+              <div>Income<br><strong id="upIncome">$0.00</strong></div>
+              <div>Bills<br><strong id="upBills">$0.00</strong></div>
+              <div>Net<br><strong id="upNet">$0.00</strong></div>
+            </div>
+            <div class="upcoming-list" id="upcomingList" aria-live="polite"></div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div class="summary-row" id="payPeriodHeader" style="display:none">
+      <button class="nav-btn" id="prevPeriod" aria-label="Previous pay period">◀</button>
+      <div class="badge" id="periodLabel">—</div>
+      <button class="nav-btn" id="nextPeriod" aria-label="Next pay period">▶</button>
+    </div>
+  </section>
+
+  <!-- GOALS -->
+  <section id="tab-goals" class="hide">
+    <div class="page-header">
+      <div>
+        <h1>Your Goals</h1>
+        <p>Track progress toward what matters most</p>
+      </div>
+      <button class="btn btn-primary" id="newGoalBtn" type="button">+ New Goal</button>
     </div>
 
     <div class="home-grid">
