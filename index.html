@@ -3,13 +3,14 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>My Budget v1.3.1</title>
+<title>My Budget v1.4.1</title>
 <link rel="manifest" href="./manifest.webmanifest">
 <meta name="theme-color" content="#f7f8fb" />
 <link rel="icon" href="./icon-192.png" sizes="192x192">
 <link rel="apple-touch-icon" href="./icon-192.png">
 <!--
-v1.3.1 changes:
+v1.4.1 changes:
+- Fixed parseAmount handling for invalid input (test + logic alignment).
 - CSV: Debit/Credit mode now treats Debit as ABS(outflow). Works even if your bank exports negative debits. One-pass import + Undo.
 - Home: pay-period navigation moved to the sticky top app bar.
 - Transactions: Filters card is collapsible to free vertical space.
@@ -220,6 +221,112 @@ Notes:
           <div class="kpi-sub">Spending vs income</div>
         </div>
       </div>
+      <div class="kpi-card">
+        <div class="kpi-icon">💹</div>
+        <div>
+          <div class="kpi-label">Savings rate</div>
+          <div class="kpi-value" id="savingsRate">0%</div>
+          <div class="kpi-sub">Net vs income</div>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon">📉</div>
+        <div>
+          <div class="kpi-label">Debt pressure</div>
+          <div class="kpi-value" id="debtPressure">0%</div>
+          <div class="kpi-sub">Spending vs income</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="home-grid">
+      <div>
+        <section class="card">
+          <div class="card-header">
+            <h2>Cash Flow Trend</h2>
+            <span class="muted">Last 6 weeks</span>
+          </div>
+          <div class="card-body">
+            <div class="chart-area" id="cashflowChart" aria-label="Cash flow trend chart"></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <h2>Spending by Category</h2>
+            <span class="muted">This month</span>
+          </div>
+          <div class="card-body">
+            <div id="categoryChart"></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <h2>Recent Transactions</h2>
+            <button class="btn btn-ghost btn-sm" id="recentAddBtn" type="button">+ Add</button>
+          </div>
+          <div class="card-body">
+            <div class="transactions-list" id="recentTransactions"></div>
+          </div>
+        </section>
+      </div>
+
+      <div>
+        <section class="card">
+          <div class="card-header">
+            <h2>This week’s insight</h2>
+          </div>
+          <div class="card-body">
+            <p class="muted" id="insightSummary">Add transactions to unlock weekly insights.</p>
+            <div class="insight-box">
+              <div class="insight-label">What matters</div>
+              <div id="insightWhatMatters">—</div>
+            </div>
+            <div class="insight-box">
+              <div class="insight-label">Suggested action</div>
+              <div id="insightAction">—</div>
+            </div>
+            <div class="mini-help" id="wkTrend">vs 4-wk avg: —</div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <h2>Month at a Glance</h2>
+          </div>
+          <div class="card-body">
+            <div class="glance-row"><span>Income</span><strong id="monthIncome">$0.00</strong></div>
+            <div class="glance-row"><span>Spending</span><strong id="monthSpending">$0.00</strong></div>
+            <div class="glance-row"><span>Projected end</span><strong id="monthProjected">$0.00</strong></div>
+            <div class="glance-row"><span>Projected to payday</span><strong id="projectedToPayday">$0.00</strong></div>
+            <div class="muted" style="margin-top:10px">Next 7 days</div>
+            <div class="glance-metrics">
+              <div>Income<br><strong id="upIncome">$0.00</strong></div>
+              <div>Bills<br><strong id="upBills">$0.00</strong></div>
+              <div>Net<br><strong id="upNet">$0.00</strong></div>
+            </div>
+            <div class="upcoming-list" id="upcomingList" aria-live="polite"></div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div class="summary-row" id="payPeriodHeader" style="display:none">
+      <button class="nav-btn" id="prevPeriod" aria-label="Previous pay period">◀</button>
+      <div class="badge" id="periodLabel">—</div>
+      <button class="nav-btn" id="nextPeriod" aria-label="Next pay period">▶</button>
+    </div>
+  </section>
+
+  <!-- GOALS -->
+  <section id="tab-goals" class="hide">
+    <div class="page-header">
+      <div>
+        <h1>Your Goals</h1>
+        <p>Track progress toward what matters most</p>
+      </div>
+      <button class="btn btn-primary" id="newGoalBtn" type="button">+ New Goal</button>
     </div>
 
     <div class="home-grid">
@@ -830,7 +937,7 @@ const GOALS_KEY='budget_goals_v1';
 const fmt=new Intl.NumberFormat(undefined,{style:'currency',currency:getLikelyCurrency(),minimumFractionDigits:2,maximumFractionDigits:2});
 function getLikelyCurrency(){try{new Intl.NumberFormat(undefined,{style:'currency',currency:'USD'}).formatToParts(1);return(Intl.NumberFormat().resolvedOptions().currency||'USD')}catch{return'USD'}}
 function formatCurrency(n){return fmt.format(Number(n||0))}
-function parseAmount(v){if(typeof v==='number')return v;if(!v&&v!==0)return NaN;v=String(v).replace(/[^0-9,.\-]/g,'').replace(',', '.');const num=Number(v);return Number.isFinite(num)?num:NaN}
+function parseAmount(v){if(typeof v==='number')return v;if(!v&&v!==0)return 0;v=String(v).replace(/[^0-9,.\-]/g,'').replace(',', '.');const num=Number(v);return Number.isFinite(num)?num:0}
 function uid(){return Math.random().toString(36).slice(2)+Date.now().toString(36)}
 function nowIso(){return new Date().toISOString()}
 function todayStr(){return new Date().toISOString().slice(0,10)}
@@ -860,7 +967,7 @@ function saveState(){localStorage.setItem(LS_KEY, JSON.stringify(state))}
 function loadGoals(){try{const raw=localStorage.getItem(GOALS_KEY); if(!raw) return []; const obj=JSON.parse(raw); return Array.isArray(obj)?obj:[];}catch{return []}}
 function saveGoals(){localStorage.setItem(GOALS_KEY, JSON.stringify(goals))}
 function seed(){
-  const s = { version:'1.3.1', settings:{payFreq:'biweekly', seedPayday: toISO(addDays(new Date(), 14))}, payPeriodOffset:0, incomes:[], expenses:[], templates:[], lastImportBatch:null, sync:{provider:null,gistId:null,token:null,keySalt:null,passHint:null,lastRev:0} };
+  const s = { version:'1.4.1', settings:{payFreq:'biweekly', seedPayday: toISO(addDays(new Date(), 14))}, payPeriodOffset:0, incomes:[], expenses:[], templates:[], lastImportBatch:null, sync:{provider:null,gistId:null,token:null,keySalt:null,passHint:null,lastRev:0} };
   s.incomes.push({id:uid(), date:toISO(addDays(new Date(), -10)), source:'Paycheck', amount:3200, scheduled:false, updatedAt:nowIso()});
   s.incomes.push({id:uid(), date:toISO(addDays(new Date(), -3)), source:'Freelance', amount:450, scheduled:false, updatedAt:nowIso()});
   s.expenses.push({id:uid(), date:toISO(addDays(new Date(), -9)), category:'Housing', amount:1200, notes:'Rent', scheduled:false, updatedAt:nowIso()});
@@ -1867,7 +1974,7 @@ function initTools(){
     try{ const text=await file.text(); const obj=JSON.parse(text);
       if(!obj || !Array.isArray(obj.incomes) || !Array.isArray(obj.expenses)) throw new Error('Invalid format');
       state={
-        version: obj.version||'1.3.1',
+        version: obj.version||'1.4.1',
         settings: obj.settings||state.settings,
         payPeriodOffset: obj.payPeriodOffset||0,
         incomes: obj.incomes.map(x=>({...x, scheduled: !!x.scheduled, updatedAt:x.updatedAt||nowIso()})),
@@ -1896,7 +2003,7 @@ function initTools(){
   dom.resetBtn.addEventListener('click', ()=>{
     if (!confirm('Erase ALL incomes/expenses (keep settings & templates)?')) return;
     const settings = state.settings, templates=state.templates, sync=state.sync;
-    state = { version:'1.3.1', settings, payPeriodOffset:0, incomes:[], expenses:[], templates, lastImportBatch:null, sync };
+    state = { version:'1.4.1', settings, payPeriodOffset:0, incomes:[], expenses:[], templates, lastImportBatch:null, sync };
     saveState();
     renderHome(); renderTransactions(); renderCalendar(); renderTemplates();
     toast('All transactions cleared');
@@ -1910,7 +2017,7 @@ function initTools(){
   dom.undoImportBtn.addEventListener('click', undoLastImport);
 }
 
-/* ====== CSV support (v1.3.1 DC fix) ====== */
+/* ====== CSV support (v1.4.1 DC fix) ====== */
 let _csvData = { headers:[], rows:[] };
 function handleCsvFile(e){
   const file=e.target.files[0]; if(!file) return;
@@ -2145,7 +2252,7 @@ function initSync(){
         const tR=new Date((remote.syncUpdatedAt||remote.versionDate||0)).getTime();
         if (tR>tL) merged.settings = remote.settings||merged.settings;
       }
-      merged.version='1.3.1'; merged.syncUpdatedAt=nowIso();
+      merged.version='1.4.1'; merged.syncUpdatedAt=nowIso();
       const payload = await encryptJSON(merged, pass, state.sync.keySalt||null);
       await pushSync(id, token, payload);
       state = merged; saveState();
