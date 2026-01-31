@@ -237,6 +237,112 @@ Notes:
           <div class="kpi-sub">Spending vs income</div>
         </div>
       </div>
+      <div class="kpi-card">
+        <div class="kpi-icon">💹</div>
+        <div>
+          <div class="kpi-label">Savings rate</div>
+          <div class="kpi-value" id="savingsRate">0%</div>
+          <div class="kpi-sub">Net vs income</div>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon">📉</div>
+        <div>
+          <div class="kpi-label">Debt pressure</div>
+          <div class="kpi-value" id="debtPressure">0%</div>
+          <div class="kpi-sub">Spending vs income</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="home-grid">
+      <div>
+        <section class="card">
+          <div class="card-header">
+            <h2>Cash Flow Trend</h2>
+            <span class="muted">Last 6 weeks</span>
+          </div>
+          <div class="card-body">
+            <div class="chart-area" id="cashflowChart" aria-label="Cash flow trend chart"></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <h2>Spending by Category</h2>
+            <span class="muted">This month</span>
+          </div>
+          <div class="card-body">
+            <div id="categoryChart"></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <h2>Recent Transactions</h2>
+            <button class="btn btn-ghost btn-sm" id="recentAddBtn" type="button">+ Add</button>
+          </div>
+          <div class="card-body">
+            <div class="transactions-list" id="recentTransactions"></div>
+          </div>
+        </section>
+      </div>
+
+      <div>
+        <section class="card">
+          <div class="card-header">
+            <h2>This week’s insight</h2>
+          </div>
+          <div class="card-body">
+            <p class="muted" id="insightSummary">Add transactions to unlock weekly insights.</p>
+            <div class="insight-box">
+              <div class="insight-label">What matters</div>
+              <div id="insightWhatMatters">—</div>
+            </div>
+            <div class="insight-box">
+              <div class="insight-label">Suggested action</div>
+              <div id="insightAction">—</div>
+            </div>
+            <div class="mini-help" id="wkTrend">vs 4-wk avg: —</div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <h2>Month at a Glance</h2>
+          </div>
+          <div class="card-body">
+            <div class="glance-row"><span>Income</span><strong id="monthIncome">$0.00</strong></div>
+            <div class="glance-row"><span>Spending</span><strong id="monthSpending">$0.00</strong></div>
+            <div class="glance-row"><span>Projected end</span><strong id="monthProjected">$0.00</strong></div>
+            <div class="glance-row"><span>Projected to payday</span><strong id="projectedToPayday">$0.00</strong></div>
+            <div class="muted" style="margin-top:10px">Next 7 days</div>
+            <div class="glance-metrics">
+              <div>Income<br><strong id="upIncome">$0.00</strong></div>
+              <div>Bills<br><strong id="upBills">$0.00</strong></div>
+              <div>Net<br><strong id="upNet">$0.00</strong></div>
+            </div>
+            <div class="upcoming-list" id="upcomingList" aria-live="polite"></div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div class="summary-row" id="payPeriodHeader" style="display:none">
+      <button class="nav-btn" id="prevPeriod" aria-label="Previous pay period">◀</button>
+      <div class="badge" id="periodLabel">—</div>
+      <button class="nav-btn" id="nextPeriod" aria-label="Next pay period">▶</button>
+    </div>
+  </section>
+
+  <!-- GOALS -->
+  <section id="tab-goals" class="hide">
+    <div class="page-header">
+      <div>
+        <h1>Your Goals</h1>
+        <p>Track progress toward what matters most</p>
+      </div>
+      <button class="btn btn-primary" id="newGoalBtn" type="button">+ New Goal</button>
     </div>
 
     <div class="home-grid">
@@ -666,115 +772,6 @@ Notes:
     </div>
   </section>
 
-  <!-- TOOLS -->
-  <section id="tab-tools" class="hide">
-    <div class="card">
-      <h2>Import / Export</h2>
-      <div class="section-body">
-        <div class="actions">
-          <button id="exportBtn" class="btn btn-ghost">Export JSON</button>
-          <label for="importFile" class="btn btn-ghost" style="display:inline-flex; align-items:center; gap:8px; cursor:pointer">
-            Import JSON <input id="importFile" type="file" accept="application/json" style="display:none" />
-          </label>
-          <label for="csvFile" class="btn btn-ghost" style="display:inline-flex; align-items:center; gap:8px; cursor:pointer">
-            Import CSV <input id="csvFile" type="file" accept=".csv,text/csv" style="display:none" />
-          </label>
-          <button id="undoImportBtn" class="btn btn-ghost" title="Undo last import" disabled>Undo Last Import</button>
-          <button id="resetBtn" class="btn btn-danger">⚠ Reset Data</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>Calculators</h2>
-      <div class="section-body">
-        <div class="row">
-          <div>
-            <label for="whatIfNumber">What-If amount</label>
-            <input id="whatIfNumber" type="number" min="0" step="1" inputmode="decimal" />
-            <div class="mini-help">Projected Balance (Net − What-If): <strong id="projectedBalance">$0.00</strong></div>
-          </div>
-          <div>
-            <label for="calcAmount">Quick Calculator: Planned purchase</label>
-            <input id="calcAmount" type="number" min="0" step="1" inputmode="decimal" placeholder="e.g., 250" />
-            <div class="mini-help">New Balance (Net − Planned): <strong id="calcResult">$0.00</strong></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>Sync (E2EE via GitHub Gist)</h2>
-      <div class="section-body">
-        <div class="mini-help">Bring your own token (gist scope). We store only encrypted data.</div>
-        <div class="row">
-          <div>
-            <label for="syncPass">Passphrase (don’t lose this)</label>
-            <input id="syncPass" type="password" placeholder="Your passphrase" />
-          </div>
-          <div>
-            <label for="syncToken">GitHub Token (gist scope)</label>
-            <input id="syncToken" type="password" placeholder="ghp_..." />
-          </div>
-        </div>
-        <div class="row">
-          <div>
-            <label for="syncId">Sync ID (Gist ID)</label>
-            <input id="syncId" type="text" placeholder="e.g., a1b2c3d4..." />
-          </div>
-          <div class="actions" style="align-items:end">
-            <button id="btnCreateGist" class="btn btn-primary" type="button" style="width:auto">Create New Sync</button>
-            <button id="btnConnect" class="btn btn-ghost" type="button" style="width:auto">Connect</button>
-            <button id="btnSyncNow" class="btn btn-ghost" type="button" style="width:auto" disabled>Sync Now</button>
-            <button id="btnSignOut" class="btn btn-danger" type="button" style="width:auto">Sign out of Sync</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- TEMPLATES -->
-  <section id="tab-templates" class="hide">
-    <div class="card">
-      <h2>Recurring Expense Templates</h2>
-      <div class="section-body">
-        <form id="tplForm">
-          <fieldset>
-            <legend>Create / Edit Template</legend>
-            <div class="row-3">
-              <div><label for="tplLabel">Label (e.g., Rent)</label><input id="tplLabel" type="text" required /></div>
-              <div><label for="tplAmount">Amount</label><input id="tplAmount" type="number" min="0" step="0.01" inputmode="decimal" required /></div>
-              <div><label for="tplFreq">Frequency</label>
-                <select id="tplFreq">
-                  <option value="weekly">Weekly</option>
-                  <option value="biweekly">Biweekly</option>
-                  <option value="semimonthly">Semi-monthly (1st & 15th)</option>
-                  <option value="monthly">Monthly</option>
-                </select>
-              </div>
-            </div>
-            <div id="tplAnchors" class="row-3" style="margin-top:8px">
-              <div id="anchWeekly" class="hide"><label for="tplWeekday">Weekday</label>
-                <select id="tplWeekday"><option value="0">Sunday</option><option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option></select>
-              </div>
-              <div id="anchBiweekly" class="hide"><label for="tplSeedDate">Seed date</label><input id="tplSeedDate" type="date" /></div>
-              <div id="anchMonthly" class="hide"><label for="tplMonthDay">Day of month</label><input id="tplMonthDay" type="number" min="1" max="31" /></div>
-            </div>
-            <div class="row">
-              <div><label for="tplStart">Start date</label><input id="tplStart" type="date" /></div>
-              <div><label for="tplNotes">Notes (optional)</label><input id="tplNotes" type="text" /></div>
-            </div>
-            <div class="actions"><button class="btn btn-primary" id="tplSave" type="submit">Save Template</button><button class="btn btn-ghost" id="tplCancel" type="button">Cancel</button></div>
-            <div id="tplErr" class="error" style="display:none">Please fill the highlighted fields.</div>
-          </fieldset>
-        </form>
-        <div class="card" style="margin:12px 0 0">
-          <h2>Templates List</h2>
-          <div class="section-body" id="tplList" class="muted">No templates yet.</div>
-        </div>
-      </div>
-    </div>
-  </section>
 </div>
 
 <!-- CSV Mapping Modal -->
@@ -1152,15 +1149,15 @@ function generateTemplateInstances(){
 
 /* ====== DOM refs ====== */
 const dom = {
-  tabs: document.querySelectorAll('.tab'),
+  menuBtn: byId('menuBtn'),
+  menuDropdown: byId('menuDropdown'),
+  menuItems: document.querySelectorAll('[data-tab]'),
   sections: {
     home: byId('tab-home'),
     goals: byId('tab-goals'),
     insights: byId('tab-insights'),
     transactions: byId('tab-transactions'),
-    calendar: byId('tab-calendar'),
-    tools: byId('tab-tools'),
-    templates: byId('tab-templates')
+    calendar: byId('tab-calendar')
   },
   // appbar period nav
   appbarNav: byId('appbarNav'), appPrev: byId('appPrev'), appNext: byId('appNext'), appPeriodLabel: byId('appPeriodLabel'),
@@ -1598,11 +1595,22 @@ function setActiveTab(tab){
   if (tab==='calendar') renderCalendar();
 }
 function initTabs(){
-  dom.tabs.forEach(btn=>{
+  dom.menuBtn.addEventListener('click', ()=>{
+    const isOpen = !dom.menuDropdown.classList.contains('hide');
+    dom.menuDropdown.classList.toggle('hide', isOpen);
+    dom.menuBtn.setAttribute('aria-expanded', String(!isOpen));
+  });
+  dom.menuItems.forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const tab=btn.getAttribute('data-tab');
       setActiveTab(tab);
     });
+  });
+  document.addEventListener('click', (e)=>{
+    if (!dom.menuDropdown.contains(e.target) && !dom.menuBtn.contains(e.target)){
+      dom.menuDropdown.classList.add('hide');
+      dom.menuBtn.setAttribute('aria-expanded','false');
+    }
   });
 }
 function initHome(){
