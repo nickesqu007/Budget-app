@@ -135,6 +135,8 @@ Notes:
   <header class="appbar">
     <div class="tabs" role="tablist" aria-label="Navigation">
       <button class="tab active" data-tab="home" role="tab" aria-selected="true">Home</button>
+      <button class="tab" data-tab="goals" role="tab">Goals</button>
+      <button class="tab" data-tab="insights" role="tab">Insights</button>
       <button class="tab" data-tab="transactions" role="tab">Transactions</button>
       <button class="tab" data-tab="calendar" role="tab">Calendar</button>
       <button class="tab" data-tab="tools" role="tab">Tools</button>
@@ -202,6 +204,112 @@ Notes:
           <div class="kpi-sub">Spending vs income</div>
         </div>
       </div>
+      <div class="kpi-card">
+        <div class="kpi-icon">💹</div>
+        <div>
+          <div class="kpi-label">Savings rate</div>
+          <div class="kpi-value" id="savingsRate">0%</div>
+          <div class="kpi-sub">Net vs income</div>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon">📉</div>
+        <div>
+          <div class="kpi-label">Debt pressure</div>
+          <div class="kpi-value" id="debtPressure">0%</div>
+          <div class="kpi-sub">Spending vs income</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="home-grid">
+      <div>
+        <section class="card">
+          <div class="card-header">
+            <h2>Cash Flow Trend</h2>
+            <span class="muted">Last 6 weeks</span>
+          </div>
+          <div class="card-body">
+            <div class="chart-area" id="cashflowChart" aria-label="Cash flow trend chart"></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <h2>Spending by Category</h2>
+            <span class="muted">This month</span>
+          </div>
+          <div class="card-body">
+            <div id="categoryChart"></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <h2>Recent Transactions</h2>
+            <button class="btn btn-ghost btn-sm" id="recentAddBtn" type="button">+ Add</button>
+          </div>
+          <div class="card-body">
+            <div class="transactions-list" id="recentTransactions"></div>
+          </div>
+        </section>
+      </div>
+
+      <div>
+        <section class="card">
+          <div class="card-header">
+            <h2>This week’s insight</h2>
+          </div>
+          <div class="card-body">
+            <p class="muted" id="insightSummary">Add transactions to unlock weekly insights.</p>
+            <div class="insight-box">
+              <div class="insight-label">What matters</div>
+              <div id="insightWhatMatters">—</div>
+            </div>
+            <div class="insight-box">
+              <div class="insight-label">Suggested action</div>
+              <div id="insightAction">—</div>
+            </div>
+            <div class="mini-help" id="wkTrend">vs 4-wk avg: —</div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <h2>Month at a Glance</h2>
+          </div>
+          <div class="card-body">
+            <div class="glance-row"><span>Income</span><strong id="monthIncome">$0.00</strong></div>
+            <div class="glance-row"><span>Spending</span><strong id="monthSpending">$0.00</strong></div>
+            <div class="glance-row"><span>Projected end</span><strong id="monthProjected">$0.00</strong></div>
+            <div class="glance-row"><span>Projected to payday</span><strong id="projectedToPayday">$0.00</strong></div>
+            <div class="muted" style="margin-top:10px">Next 7 days</div>
+            <div class="glance-metrics">
+              <div>Income<br><strong id="upIncome">$0.00</strong></div>
+              <div>Bills<br><strong id="upBills">$0.00</strong></div>
+              <div>Net<br><strong id="upNet">$0.00</strong></div>
+            </div>
+            <div class="upcoming-list" id="upcomingList" aria-live="polite"></div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div class="summary-row" id="payPeriodHeader" style="display:none">
+      <button class="nav-btn" id="prevPeriod" aria-label="Previous pay period">◀</button>
+      <div class="badge" id="periodLabel">—</div>
+      <button class="nav-btn" id="nextPeriod" aria-label="Next pay period">▶</button>
+    </div>
+  </section>
+
+  <!-- GOALS -->
+  <section id="tab-goals" class="hide">
+    <div class="page-header">
+      <div>
+        <h1>Your Goals</h1>
+        <p>Track progress toward what matters most</p>
+      </div>
+      <button class="btn btn-primary" id="newGoalBtn" type="button">+ New Goal</button>
     </div>
 
     <div class="home-grid">
@@ -603,6 +711,112 @@ Notes:
   </div>
 </div>
 
+<!-- Goals Modal -->
+<div class="modal-overlay" id="goalModalOverlay" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="goalModalTitle">
+    <button class="close-btn" type="button" id="goalModalClose">×</button>
+    <h3 id="goalModalTitle">Create New Goal</h3>
+    <div class="row" style="margin-top:12px">
+      <div style="grid-column:1 / -1">
+        <label for="goalName">Goal Name</label>
+        <input id="goalName" type="text" placeholder="e.g., Emergency Fund" required>
+      </div>
+    </div>
+    <div style="margin-top:12px">
+      <label for="goalType">Goal Type</label>
+      <select id="goalType">
+        <option value="General Savings">General Savings</option>
+        <option value="Debt Payoff">Debt Payoff</option>
+        <option value="Big Purchase">Big Purchase</option>
+      </select>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <div>
+        <label for="goalTarget">Target Amount</label>
+        <input id="goalTarget" type="number" min="0" step="0.01" placeholder="10000">
+      </div>
+      <div>
+        <label for="goalCurrent">Current Progress</label>
+        <input id="goalCurrent" type="number" min="0" step="0.01" placeholder="0">
+      </div>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <div>
+        <label for="goalDate">Target Date</label>
+        <input id="goalDate" type="date">
+      </div>
+      <div>
+        <label for="goalMonthly">Monthly Contribution</label>
+        <input id="goalMonthly" type="number" min="0" step="0.01" placeholder="500">
+      </div>
+    </div>
+    <div style="margin-top:12px">
+      <label>Priority</label>
+      <div class="priority-group" id="goalPriorityGroup">
+        <button class="pill-btn" type="button" data-priority="low">Low</button>
+        <button class="pill-btn active" type="button" data-priority="medium">Medium</button>
+        <button class="pill-btn" type="button" data-priority="high">High</button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="goalModalCancel" type="button">Cancel</button>
+      <button class="btn btn-primary" id="goalModalCreate" type="button">Create Goal</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Transaction Modal -->
+<div class="modal-overlay" id="txnModalOverlay" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="txnModalTitle">
+    <button class="close-btn" type="button" id="txnModalClose">×</button>
+    <h3 id="txnModalTitle">Add Transaction</h3>
+    <div class="segmented" id="txnTypeSwitch" style="margin-top:12px">
+      <button type="button" class="active" data-txn-type="expense">Expense</button>
+      <button type="button" data-txn-type="income">Income</button>
+    </div>
+    <div style="margin-top:12px">
+      <label for="txnAmount">Amount</label>
+      <input id="txnAmount" type="number" min="0" step="0.01" placeholder="0.00">
+    </div>
+    <div style="margin-top:12px">
+      <label for="txnDesc">Description</label>
+      <input id="txnDesc" type="text" placeholder="e.g., Coffee at Starbucks">
+    </div>
+    <div class="row" style="margin-top:12px">
+      <div>
+        <label for="txnDate">Date</label>
+        <input id="txnDate" type="date">
+      </div>
+      <div id="txnCategoryWrap">
+        <label for="txnCategory">Category</label>
+        <select id="txnCategory">
+          <option value="">Select category</option>
+          <option value="Housing">Housing</option>
+          <option value="Utilities">Utilities</option>
+          <option value="Food">Food</option>
+          <option value="Transport">Transport</option>
+          <option value="Debt">Debt</option>
+          <option value="Health">Health</option>
+          <option value="Entertainment">Entertainment</option>
+          <option value="Savings">Savings</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+    </div>
+    <div class="toggle-row" style="margin-top:12px">
+      <span class="muted">This is a recurring transaction</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="txnRecurring">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="txnModalCancel" type="button">Cancel</button>
+      <button class="btn btn-primary" id="txnModalAdd" type="button">Add Transaction</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <script>
@@ -612,6 +826,7 @@ if ('serviceWorker' in navigator) {
 
 /* ====== Storage & Utilities ====== */
 const LS_KEY='simple_budget_v11';
+const GOALS_KEY='budget_goals_v1';
 const fmt=new Intl.NumberFormat(undefined,{style:'currency',currency:getLikelyCurrency(),minimumFractionDigits:2,maximumFractionDigits:2});
 function getLikelyCurrency(){try{new Intl.NumberFormat(undefined,{style:'currency',currency:'USD'}).formatToParts(1);return(Intl.NumberFormat().resolvedOptions().currency||'USD')}catch{return'USD'}}
 function formatCurrency(n){return fmt.format(Number(n||0))}
@@ -638,9 +853,12 @@ if (!state.templates) state.templates = [];
 if (!state.lastImportBatch) state.lastImportBatch = null;
 if (!state.sync) state.sync = { provider:null, gistId:null, token:null, keySalt:null, passHint:null, lastRev:0 };
 saveState();
+let goals = loadGoals();
 
 function loadState(){try{const raw=localStorage.getItem(LS_KEY); if(!raw) return seed(); const obj=JSON.parse(raw); return obj;}catch{return seed()}}
 function saveState(){localStorage.setItem(LS_KEY, JSON.stringify(state))}
+function loadGoals(){try{const raw=localStorage.getItem(GOALS_KEY); if(!raw) return []; const obj=JSON.parse(raw); return Array.isArray(obj)?obj:[];}catch{return []}}
+function saveGoals(){localStorage.setItem(GOALS_KEY, JSON.stringify(goals))}
 function seed(){
   const s = { version:'1.3.1', settings:{payFreq:'biweekly', seedPayday: toISO(addDays(new Date(), 14))}, payPeriodOffset:0, incomes:[], expenses:[], templates:[], lastImportBatch:null, sync:{provider:null,gistId:null,token:null,keySalt:null,passHint:null,lastRev:0} };
   s.incomes.push({id:uid(), date:toISO(addDays(new Date(), -10)), source:'Paycheck', amount:3200, scheduled:false, updatedAt:nowIso()});
@@ -830,6 +1048,8 @@ const dom = {
   tabs: document.querySelectorAll('.tab'),
   sections: {
     home: byId('tab-home'),
+    goals: byId('tab-goals'),
+    insights: byId('tab-insights'),
     transactions: byId('tab-transactions'),
     calendar: byId('tab-calendar'),
     tools: byId('tab-tools'),
@@ -851,6 +1071,28 @@ const dom = {
   payPeriodHeader: byId('payPeriodHeader'), periodLabel: byId('periodLabel'),
   // upcoming
   upBills: byId('upBills'), upIncome: byId('upIncome'), upNet: byId('upNet'), upcomingList: byId('upcomingList'),
+  // goals
+  newGoalBtn: byId('newGoalBtn'), totalGoalsSaved: byId('totalGoalsSaved'), totalGoalsTarget: byId('totalGoalsTarget'),
+  totalGoalsPercent: byId('totalGoalsPercent'), totalGoalsBar: byId('totalGoalsBar'), goalsGrid: byId('goalsGrid'),
+  goalModalOverlay: byId('goalModalOverlay'), goalModalClose: byId('goalModalClose'), goalModalCancel: byId('goalModalCancel'),
+  goalModalCreate: byId('goalModalCreate'), goalName: byId('goalName'), goalType: byId('goalType'), goalTarget: byId('goalTarget'),
+  goalCurrent: byId('goalCurrent'), goalDate: byId('goalDate'), goalMonthly: byId('goalMonthly'), goalPriorityGroup: byId('goalPriorityGroup'),
+  // insights
+  insightsTabs: document.querySelectorAll('.insights-tab'),
+  insightsWeekly: byId('insights-weekly'), insightsTrends: byId('insights-trends'), insightsWhatif: byId('insights-whatif'),
+  monthlySpendingChart: byId('monthlySpendingChart'), monthlyTrendNote: byId('monthlyTrendNote'),
+  insightsCategoryChart: byId('insightsCategoryChart'), insightsCategoryList: byId('insightsCategoryList'),
+  weeklyInsightText: byId('weeklyInsightText'),
+  insightsTotalTx: byId('insightsTotalTx'), insightsActiveGoals: byId('insightsActiveGoals'),
+  insightsIncome: byId('insightsIncome'), insightsSpending: byId('insightsSpending'),
+  whatIfExtra: byId('whatIfExtra'), whatIfExtraLabel: byId('whatIfExtraLabel'),
+  whatIfHorizon: byId('whatIfHorizon'), whatIfHorizonLabel: byId('whatIfHorizonLabel'),
+  whatIfMonthly: byId('whatIfMonthly'), whatIfTotal: byId('whatIfTotal'), whatIfMonthsLabel: byId('whatIfMonthsLabel'),
+  // add transaction modal
+  txnModalOverlay: byId('txnModalOverlay'), txnModalClose: byId('txnModalClose'), txnModalCancel: byId('txnModalCancel'),
+  txnModalAdd: byId('txnModalAdd'), txnTypeSwitch: byId('txnTypeSwitch'), txnAmount: byId('txnAmount'),
+  txnDesc: byId('txnDesc'), txnDate: byId('txnDate'), txnCategory: byId('txnCategory'), txnCategoryWrap: byId('txnCategoryWrap'),
+  txnRecurring: byId('txnRecurring'),
   // weekly summary
   wkSpent: byId('wkSpent'), wkAvg: byId('wkAvg'), wkProj: byId('wkProj'), wkTrend: byId('wkTrend'),
   // filters
@@ -1008,6 +1250,159 @@ function renderHome(){
   const {start,end}=currentPayPeriodRange();
   dom.appPeriodLabel.textContent = formatRangeShort(start,end);
 }
+function goalTypeMeta(type){
+  if (type==='Debt Payoff') return {icon:'💳', bg:'#fee2e2'};
+  if (type==='Big Purchase') return {icon:'🎯', bg:'#fef3c7'};
+  return {icon:'🐷', bg:'#dcfce7'};
+}
+function renderGoals(){
+  const totalSaved = goals.reduce((s,g)=>s+Number(g.currentAmount||0),0);
+  const totalTarget = goals.reduce((s,g)=>s+Number(g.targetAmount||0),0);
+  const pct = totalTarget ? Math.round((totalSaved / totalTarget) * 100) : 0;
+  dom.totalGoalsSaved.textContent = formatCurrency(totalSaved);
+  dom.totalGoalsTarget.textContent = formatCurrency(totalTarget);
+  dom.totalGoalsPercent.textContent = `${pct}%`;
+  dom.totalGoalsBar.style.width = `${Math.min(100, pct)}%`;
+  dom.goalsGrid.innerHTML = goals.length ? goals.map(goal=>{
+    const meta = goalTypeMeta(goal.type);
+    const percent = goal.targetAmount ? Math.round((goal.currentAmount / goal.targetAmount) * 100) : 0;
+    const remaining = Math.max(0, Number(goal.targetAmount||0) - Number(goal.currentAmount||0));
+    let helper = '';
+    if (goal.targetDate){
+      const targetDate = new Date(goal.targetDate);
+      const months = Math.max(1, (targetDate.getFullYear()-new Date().getFullYear())*12 + (targetDate.getMonth()-new Date().getMonth()) + 1);
+      const perMonth = remaining / months;
+      helper = `To reach your goal, save ${formatCurrency(perMonth)} / month for the next ${months} months.`;
+    } else if (goal.monthlyContribution){
+      helper = `Monthly contribution: ${formatCurrency(goal.monthlyContribution)}.`;
+    }
+    return `
+      <div class="goal-card">
+        <div class="goal-actions">
+          <button class="btn btn-ghost btn-sm" data-goal-action="edit" data-id="${goal.id}">✎</button>
+          <button class="btn btn-ghost btn-sm" data-goal-action="delete" data-id="${goal.id}">🗑</button>
+        </div>
+        <div class="goal-meta">
+          <div class="icon-pill" style="background:${meta.bg}">${meta.icon}</div>
+          <div>
+            <div style="font-weight:600">${escapeHtml(goal.name)}</div>
+            <div class="goal-type">${escapeHtml(goal.type)}</div>
+          </div>
+        </div>
+        <div class="goal-amount">${formatCurrency(goal.currentAmount)} <span class="muted">of ${formatCurrency(goal.targetAmount)}</span></div>
+        <div class="goal-remaining">
+          <span>Remaining ${formatCurrency(remaining)}</span>
+          <strong>${percent}% complete</strong>
+        </div>
+        <div class="progress-bar" style="margin:10px 0">
+          <div class="progress-fill" style="width:${Math.min(100, percent)}%"></div>
+        </div>
+        <div class="goal-remaining">
+          <span>Target date</span>
+          <strong>${goal.targetDate ? escapeHtml(goal.targetDate) : '—'}</strong>
+        </div>
+        ${helper ? `<div class="goal-helper">${helper}</div>` : ''}
+        <button class="btn btn-primary" data-goal-action="log" data-id="${goal.id}" type="button">Log contribution</button>
+      </div>
+    `;
+  }).join('') : '<div class="muted">No goals yet. Click “+ New Goal” to get started.</div>';
+}
+function renderInsights(){
+  const now = new Date(); now.setHours(0,0,0,0);
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthEnd = new Date(now.getFullYear(), now.getMonth()+1, 0); monthEnd.setHours(23,59,59,999);
+  const {inc, exp} = totalsForRange({start: monthStart, end: monthEnd});
+  dom.insightsIncome.textContent = formatCurrency(inc);
+  dom.insightsSpending.textContent = formatCurrency(exp);
+  dom.insightsActiveGoals.textContent = String(goals.length);
+  dom.insightsTotalTx.textContent = String(state.incomes.length + state.expenses.length);
+
+  const weekly = weeklySummaryCalc();
+  const trendPct = weekly.avg4 ? ((weekly.spent - weekly.avg4) / weekly.avg4) * 100 : 0;
+  dom.weeklyInsightText.textContent = weekly.spent
+    ? `You spent ${Math.abs(Math.round(trendPct))}% ${trendPct <= 0 ? 'less' : 'more'} this week than your 4-week average.`
+    : 'Add transactions to unlock weekly insights.';
+
+  if (dom.monthlySpendingChart){
+    const months = [];
+    for (let i=5;i>=0;i--){
+      const start = new Date(now.getFullYear(), now.getMonth()-i, 1);
+      const end = new Date(now.getFullYear(), now.getMonth()-i+1, 0); end.setHours(23,59,59,999);
+      const {exp:total} = totalsForRange({start, end});
+      months.push({label:new Intl.DateTimeFormat(undefined,{month:'short'}).format(start), value:total});
+    }
+    const max = Math.max(...months.map(m=>m.value), 1);
+    const w = 320, h = 140, pad = 16;
+    const points = months.map((m, idx)=>{
+      const x = pad + (idx * (w - pad*2) / (months.length - 1));
+      const y = pad + ((max - m.value) / max) * (h - pad*2);
+      return `${x},${y}`;
+    });
+    const line = `M ${points.join(' L ')}`;
+    dom.monthlySpendingChart.innerHTML = `
+      <svg viewBox="0 0 ${w} ${h}" role="img" aria-label="Monthly spending">
+        <rect x="0" y="0" width="${w}" height="${h}" fill="#f8fafc" rx="12"></rect>
+        <path d="${line}" fill="none" stroke="#22c55e" stroke-width="3" stroke-linecap="round"></path>
+        ${points.map(p=>`<circle cx="${p.split(',')[0]}" cy="${p.split(',')[1]}" r="3" fill="#0f172a"></circle>`).join('')}
+        ${months.map((m, idx)=>`<text x="${pad + (idx * (w - pad*2) / (months.length - 1))}" y="${h - 6}" font-size="10" text-anchor="middle" fill="#64748b">${m.label}</text>`).join('')}
+      </svg>`;
+    const prev = months[months.length-2]?.value || 0;
+    const curr = months[months.length-1]?.value || 0;
+    const delta = prev ? Math.round(((curr - prev) / prev) * 100) : 0;
+    dom.monthlyTrendNote.textContent = prev ? `${Math.abs(delta)}% ${delta <= 0 ? 'less' : 'more'} than last month` : 'Same as last month';
+  }
+
+  if (dom.insightsCategoryChart){
+    const totals = {};
+    state.expenses.filter(x=>!x.scheduled && inRange(x.date, monthStart, monthEnd)).forEach(x=>{
+      const key = x.category || 'Other';
+      totals[key] = (totals[key] || 0) + Number(x.amount||0);
+    });
+    const entries = Object.entries(totals).sort((a,b)=>b[1]-a[1]);
+    const total = entries.reduce((s,[,v])=>s+v,0) || 1;
+    const colors = ['#22c55e','#6366f1','#f97316','#ec4899','#3b82f6','#facc15'];
+    let offset = 0;
+    const radius = 50;
+    const circumference = 2 * Math.PI * radius;
+    const rings = entries.slice(0,5).map(([name,val], idx)=>{
+      const pct = val / total;
+      const length = pct * circumference;
+      const dash = `${length} ${circumference - length}`;
+      const circle = `<circle r="${radius}" cx="70" cy="70" fill="transparent" stroke="${colors[idx%colors.length]}" stroke-width="14" stroke-dasharray="${dash}" stroke-dashoffset="${-offset}" />`;
+      offset += length;
+      return circle;
+    }).join('');
+    dom.insightsCategoryChart.innerHTML = `
+      <svg viewBox="0 0 140 140" role="img" aria-label="Category donut">
+        <circle r="${radius}" cx="70" cy="70" fill="transparent" stroke="#e5e7eb" stroke-width="14"></circle>
+        ${rings}
+      </svg>`;
+    dom.insightsCategoryList.innerHTML = entries.slice(0,5).map(([name,val], idx)=>`
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px">
+        <span style="display:flex; align-items:center; gap:8px"><span style="width:10px;height:10px;border-radius:50%;background:${colors[idx%colors.length]}"></span>${escapeHtml(name)}</span>
+        <strong>${formatCurrency(val)}</strong>
+      </div>
+    `).join('') || '<div class="muted">No spending data yet.</div>';
+  }
+
+  updateWhatIf();
+}
+function updateWhatIf(){
+  if (!dom.whatIfExtra) return;
+  const extra = Number(dom.whatIfExtra.value || 0);
+  const months = Number(dom.whatIfHorizon.value || 12);
+  dom.whatIfExtraLabel.textContent = formatCurrency(extra);
+  dom.whatIfHorizonLabel.textContent = `${months} months`;
+  dom.whatIfMonthsLabel.textContent = String(months);
+  const now = new Date(); now.setHours(0,0,0,0);
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthEnd = new Date(now.getFullYear(), now.getMonth()+1, 0); monthEnd.setHours(23,59,59,999);
+  const {inc, exp} = totalsForRange({start: monthStart, end: monthEnd});
+  const baseSavings = inc - exp;
+  const newMonthly = baseSavings + extra;
+  dom.whatIfMonthly.textContent = formatCurrency(newMonthly);
+  dom.whatIfTotal.textContent = formatCurrency(newMonthly * months);
+}
 function renderTransactions(){
   const range = getActiveRange();
   const incRows = state.incomes.filter(x=>inRange(x.date, range.start, range.end) && !(x.scheduled && isFuture(x.date)))
@@ -1147,6 +1542,133 @@ function initHome(){
         saveState(); renderHome(); renderTransactions(); renderCalendar(); toast('Marked paid');
       }
     }
+  });
+}
+function initGoals(){
+  dom.newGoalBtn.addEventListener('click', ()=>openGoalModal());
+  dom.goalModalClose.addEventListener('click', closeGoalModal);
+  dom.goalModalCancel.addEventListener('click', closeGoalModal);
+  dom.goalPriorityGroup.addEventListener('click', (e)=>{
+    const btn = e.target.closest('button[data-priority]'); if(!btn) return;
+    dom.goalPriorityGroup.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+  dom.goalModalCreate.addEventListener('click', ()=>{
+    const name = dom.goalName.value.trim();
+    const target = parseAmount(dom.goalTarget.value);
+    const current = parseAmount(dom.goalCurrent.value || '0');
+    if (!name){ alert('Goal name is required.'); return; }
+    if (!Number.isFinite(target) || target<=0){ alert('Target amount must be greater than 0.'); return; }
+    if (!Number.isFinite(current) || current<0){ alert('Current progress cannot be negative.'); return; }
+    const priority = dom.goalPriorityGroup.querySelector('.active')?.dataset.priority || 'medium';
+    const editingId = dom.goalModalCreate.dataset.editingId;
+    const goalData = {
+      id: editingId || uid(),
+      name,
+      type: dom.goalType.value,
+      targetAmount: target,
+      currentAmount: current,
+      targetDate: dom.goalDate.value,
+      monthlyContribution: parseAmount(dom.goalMonthly.value || '0'),
+      priority,
+      createdAt: editingId ? goals.find(g=>g.id===editingId)?.createdAt || nowIso() : nowIso()
+    };
+    if (editingId){
+      goals = goals.map(g=>g.id===editingId ? goalData : g);
+    } else {
+      goals.push(goalData);
+    }
+    saveGoals();
+    closeGoalModal();
+    renderGoals();
+    renderInsights();
+  });
+  dom.goalsGrid.addEventListener('click', (e)=>{
+    const action = e.target.closest('[data-goal-action]'); if(!action) return;
+    const id = action.getAttribute('data-id');
+    const goal = goals.find(g=>g.id===id);
+    if (!goal) return;
+    const act = action.getAttribute('data-goal-action');
+    if (act==='delete'){
+      if (!confirm('Delete this goal?')) return;
+      goals = goals.filter(g=>g.id!==id);
+      saveGoals();
+      renderGoals();
+      renderInsights();
+    }
+    if (act==='edit'){
+      openGoalModal(goal);
+    }
+    if (act==='log'){
+      const input = prompt('Log contribution amount:', '0');
+      if (input===null) return;
+      const amt = parseAmount(input);
+      if (!Number.isFinite(amt) || amt<=0){ alert('Enter a valid amount.'); return; }
+      goal.currentAmount = Number(goal.currentAmount||0) + amt;
+      saveGoals();
+      renderGoals();
+      renderInsights();
+    }
+  });
+}
+function initInsights(){
+  dom.insightsTabs.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const tab = btn.getAttribute('data-insights-tab');
+      setInsightsTab(tab);
+    });
+  });
+  dom.whatIfExtra.addEventListener('input', updateWhatIf);
+  dom.whatIfHorizon.addEventListener('input', updateWhatIf);
+  setInsightsTab('weekly');
+}
+function initTxnModal(){
+  dom.txnModalClose.addEventListener('click', closeTxnModal);
+  dom.txnModalCancel.addEventListener('click', closeTxnModal);
+  dom.txnTypeSwitch.addEventListener('click', (e)=>{
+    const btn = e.target.closest('button[data-txn-type]'); if(!btn) return;
+    dom.txnTypeSwitch.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const type = btn.dataset.txnType;
+    dom.txnCategoryWrap.style.display = type==='expense' ? '' : 'none';
+  });
+  dom.txnModalAdd.addEventListener('click', ()=>{
+    const activeBtn = dom.txnTypeSwitch.querySelector('button.active');
+    const type = activeBtn?.dataset.txnType || 'expense';
+    const amt = parseAmount(dom.txnAmount.value);
+    if (!Number.isFinite(amt) || amt<=0){ alert('Enter a valid amount.'); return; }
+    const desc = dom.txnDesc.value.trim();
+    const date = dom.txnDate.value || todayStr();
+    const scheduled = dom.txnRecurring.checked;
+    if (type==='income'){
+      state.incomes.push({
+        id: uid(),
+        date,
+        source: desc || 'Income',
+        amount: amt,
+        scheduled,
+        updatedAt: nowIso()
+      });
+      saveState();
+      renderHome(); renderTransactions();
+      toast('Income added');
+    } else {
+      const category = dom.txnCategory.value || 'Other';
+      state.expenses.push({
+        id: uid(),
+        date,
+        category,
+        amount: amt,
+        notes: desc,
+        scheduled,
+        templateId: null,
+        updatedAt: nowIso()
+      });
+      saveState();
+      renderHome(); renderTransactions();
+      toast('Expense added');
+    }
+    closeTxnModal();
   });
 }
 function initTransactions(){
@@ -1643,8 +2165,8 @@ function init(){
   dom.payFreq.value = state.settings.payFreq||'biweekly';
   dom.seedPayday.value = toISO(state.settings.seedPayday||todayStr());
 
-  initTabs(); initHome(); initTransactions(); initCalendar(); initTemplates(); initTools(); initSync();
-  renderHome(); renderTransactions();
+  initTabs(); initHome(); initGoals(); initInsights(); initTxnModal(); initTransactions(); initCalendar(); initTemplates(); initTools(); initSync();
+  renderHome(); renderGoals(); renderInsights(); renderTransactions();
 }
 init();
 </script>
