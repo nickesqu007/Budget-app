@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v1.4.1';
+const CACHE_VERSION = 'v1.4.2';
 const CACHE_NAME = 'budget-cache-' + CACHE_VERSION;
 const ASSETS = [
   './',
