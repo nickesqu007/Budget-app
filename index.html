@@ -106,63 +106,14 @@ Notes:
   .glance-row:last-child{border-bottom:none}
   .glance-metrics{display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin:10px 0}
   .glance-metrics div{background:#f8fafc; border:1px solid var(--border); border-radius:10px; padding:8px; text-align:center; font-size:.85rem}
-  .page-header{display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; padding:10px 0 4px}
-  .page-header h1{margin:0; font-size:2rem}
-  .page-header p{margin:6px 0 0; color:var(--muted)}
-  .goals-summary{display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap}
-  .progress-bar{height:10px; background:#e5e7eb; border-radius:999px; overflow:hidden}
-  .progress-fill{height:100%; background:var(--accent); border-radius:999px}
-  .goals-grid{display:grid; gap:16px; grid-template-columns:repeat(3, minmax(220px, 1fr))}
-  .goal-card{position:relative; padding:16px; border-radius:16px; background:#fff; border:1px solid var(--border); box-shadow:var(--shadow)}
-  .goal-card .goal-actions{position:absolute; top:12px; right:12px; display:flex; gap:8px}
-  .icon-pill{width:40px; height:40px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:1.1rem}
-  .goal-meta{display:flex; align-items:center; gap:12px}
-  .goal-type{font-size:.75rem; text-transform:uppercase; letter-spacing:.08em; color:var(--muted)}
-  .goal-amount{font-size:1.4rem; font-weight:700; margin:8px 0}
-  .goal-remaining{display:flex; justify-content:space-between; font-size:.85rem; color:var(--muted)}
-  .goal-helper{background:#f8fafc; border:1px dashed var(--border); border-radius:12px; padding:10px; font-size:.85rem; color:#475569; margin:10px 0}
-  .pill-btn{padding:6px 12px; border-radius:999px; border:1px solid var(--border); background:#fff; cursor:pointer}
-  .pill-btn.active{background:#111827; color:#fff; border-color:#111827}
-  .insights-tabs{display:flex; gap:10px; flex-wrap:wrap; margin:12px 0 20px}
-  .insights-tab{display:flex; gap:6px; align-items:center; padding:6px 12px; border-radius:999px; border:1px solid var(--border); background:#fff; cursor:pointer; font-size:.9rem}
-  .insights-tab.active{background:#111827; color:#fff; border-color:#111827}
-  .insights-grid{display:grid; gap:16px; grid-template-columns:1fr 1fr}
-  .kpi-row{display:grid; gap:16px; grid-template-columns:repeat(4, minmax(200px, 1fr)); margin-top:16px}
-  .kpi-mini{background:#fff; border:1px solid var(--border); border-radius:14px; padding:14px; box-shadow:var(--shadow)}
-  .kpi-mini .label{font-size:.8rem; color:var(--muted)}
-  .kpi-mini .value{font-size:1.3rem; font-weight:700; margin-top:6px}
-  .whatif-row{display:grid; gap:16px; grid-template-columns:1fr 1fr}
-  .whatif-output{display:grid; gap:12px; margin-top:16px}
-  .whatif-output .output-box{display:flex; align-items:center; justify-content:space-between; padding:12px 14px; border-radius:12px; border:1px solid var(--border); background:#f8fafc}
-  .slider-label{display:flex; align-items:center; justify-content:space-between; font-size:.9rem; color:#475569}
-  .modal-overlay{position:fixed; inset:0; background:rgba(15,23,42,.55); display:none; align-items:center; justify-content:center; padding:20px; z-index:50}
-  .modal{background:#fff; border-radius:16px; padding:20px; width:min(520px, 100%); box-shadow:var(--shadow); position:relative}
-  .modal h3{margin:0 0 6px}
-  .modal .close-btn{position:absolute; top:12px; right:12px; border:none; background:transparent; font-size:1.2rem; cursor:pointer}
-  .modal .modal-actions{display:flex; gap:12px; justify-content:flex-end; margin-top:16px}
-  .segmented{display:flex; background:#f3f4f6; padding:4px; border-radius:999px; gap:4px}
-  .segmented button{border:none; background:transparent; padding:8px 16px; border-radius:999px; cursor:pointer}
-  .segmented button.active{background:#fff; box-shadow:var(--shadow)}
-  .toggle-row{display:flex; align-items:center; justify-content:space-between; gap:12px}
-  .toggle-switch{position:relative; width:42px; height:24px}
-  .toggle-switch input{opacity:0; width:0; height:0}
-  .toggle-slider{position:absolute; inset:0; background:#e5e7eb; border-radius:999px; transition:.2s}
-  .toggle-slider:before{content:""; position:absolute; width:18px; height:18px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.2s; box-shadow:0 2px 6px rgba(15,23,42,.2)}
-  .toggle-switch input:checked + .toggle-slider{background:var(--accent)}
-  .toggle-switch input:checked + .toggle-slider:before{transform:translateX(18px)}
-  .priority-group{display:flex; gap:8px}
-  .priority-group button{flex:1}
   @media (max-width: 1100px){ .kpi-grid{grid-template-columns:repeat(2, minmax(180px, 1fr));} }
-  @media (max-width: 900px){ .home-grid{grid-template-columns:1fr;} .insights-grid{grid-template-columns:1fr;} }
+  @media (max-width: 900px){ .home-grid{grid-template-columns:1fr;} }
   @media (max-width: 700px){
     .row, .row-3{grid-template-columns:1fr}
     .home-hero{align-items:flex-start}
     .kpi-grid{grid-template-columns:1fr}
     .bar-row{grid-template-columns:1fr}
     .glance-metrics{grid-template-columns:1fr}
-    .goals-grid{grid-template-columns:1fr}
-    .kpi-row{grid-template-columns:1fr}
-    .whatif-row{grid-template-columns:1fr}
   }
   .summary-row{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:8px}
   /* Calendar */
@@ -235,6 +186,22 @@ Notes:
           <div class="kpi-label">Daily burn</div>
           <div class="kpi-value" id="dailyBurn">$0.00</div>
           <div class="kpi-sub">Average spend per day</div>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon">💹</div>
+        <div>
+          <div class="kpi-label">Savings rate</div>
+          <div class="kpi-value" id="savingsRate">0%</div>
+          <div class="kpi-sub">Net vs income</div>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon">📉</div>
+        <div>
+          <div class="kpi-label">Debt pressure</div>
+          <div class="kpi-value" id="debtPressure">0%</div>
+          <div class="kpi-sub">Spending vs income</div>
         </div>
       </div>
       <div class="kpi-card">
@@ -345,139 +312,83 @@ Notes:
       <button class="btn btn-primary" id="newGoalBtn" type="button">+ New Goal</button>
     </div>
 
-    <section class="card">
-      <div class="card-body">
-        <div class="goals-summary">
-          <div>
-            <div class="muted">Total Progress</div>
-            <div class="goal-amount"><span id="totalGoalsSaved">$0</span> <span class="muted">/ <span id="totalGoalsTarget">$0</span></span></div>
-          </div>
-          <div class="right">
-            <div class="goal-amount" id="totalGoalsPercent">0%</div>
-            <div class="muted">complete</div>
-          </div>
-        </div>
-        <div class="progress-bar" style="margin-top:12px">
-          <div class="progress-fill" id="totalGoalsBar" style="width:0%"></div>
-        </div>
-      </div>
-    </section>
-
-    <div class="goals-grid" id="goalsGrid"></div>
-  </section>
-
-  <!-- INSIGHTS -->
-  <section id="tab-insights" class="hide">
-    <div class="page-header">
+    <div class="home-grid">
       <div>
-        <h1>Insights &amp; Reports</h1>
-        <p>Understand your money patterns and plan ahead</p>
-      </div>
-    </div>
-
-    <div class="insights-tabs">
-      <button class="insights-tab active" data-insights-tab="weekly">Weekly Insights</button>
-      <button class="insights-tab" data-insights-tab="trends">Trends</button>
-      <button class="insights-tab" data-insights-tab="whatif">What If</button>
-    </div>
-
-    <div id="insights-weekly">
-      <section class="card">
-        <div class="card-body">
-          <div class="goal-meta">
-            <div class="icon-pill" style="background:#e0f2fe">💡</div>
-            <div>
-              <div style="font-weight:600">Weekly insight</div>
-              <div class="muted">Personalized based on your latest activity</div>
-            </div>
-          </div>
-          <p id="weeklyInsightText" style="margin-top:12px">Add more transactions to unlock detailed insights.</p>
-        </div>
-      </section>
-    </div>
-
-    <div id="insights-trends" class="hide">
-      <div class="insights-grid">
         <section class="card">
           <div class="card-header">
-            <h2>Monthly Spending</h2>
+            <h2>Cash Flow Trend</h2>
+            <span class="muted">Last 6 weeks</span>
           </div>
           <div class="card-body">
-            <div class="chart-area" id="monthlySpendingChart" aria-label="Monthly spending chart"></div>
-            <div class="mini-help" id="monthlyTrendNote">Same as last month</div>
+            <div class="chart-area" id="cashflowChart" aria-label="Cash flow trend chart"></div>
           </div>
         </section>
+
         <section class="card">
           <div class="card-header">
-            <h2>Where Your Money Goes</h2>
+            <h2>Spending by Category</h2>
+            <span class="muted">This month</span>
           </div>
           <div class="card-body">
-            <div class="home-grid" style="grid-template-columns:140px 1fr; align-items:center">
-              <div class="chart-area" style="height:140px" id="insightsCategoryChart" aria-label="Category breakdown"></div>
-              <div id="insightsCategoryList"></div>
-            </div>
+            <div id="categoryChart"></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <h2>Recent Transactions</h2>
+            <button class="btn btn-ghost btn-sm" id="recentAddBtn" type="button">+ Add</button>
+          </div>
+          <div class="card-body">
+            <div class="transactions-list" id="recentTransactions"></div>
           </div>
         </section>
       </div>
+
+      <div>
+        <section class="card">
+          <div class="card-header">
+            <h2>This week’s insight</h2>
+          </div>
+          <div class="card-body">
+            <p class="muted" id="insightSummary">Add transactions to unlock weekly insights.</p>
+            <div class="insight-box">
+              <div class="insight-label">What matters</div>
+              <div id="insightWhatMatters">—</div>
+            </div>
+            <div class="insight-box">
+              <div class="insight-label">Suggested action</div>
+              <div id="insightAction">—</div>
+            </div>
+            <div class="mini-help" id="wkTrend">vs 4-wk avg: —</div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <h2>Month at a Glance</h2>
+          </div>
+          <div class="card-body">
+            <div class="glance-row"><span>Income</span><strong id="monthIncome">$0.00</strong></div>
+            <div class="glance-row"><span>Spending</span><strong id="monthSpending">$0.00</strong></div>
+            <div class="glance-row"><span>Projected end</span><strong id="monthProjected">$0.00</strong></div>
+            <div class="glance-row"><span>Projected to payday</span><strong id="projectedToPayday">$0.00</strong></div>
+            <div class="muted" style="margin-top:10px">Next 7 days</div>
+            <div class="glance-metrics">
+              <div>Income<br><strong id="upIncome">$0.00</strong></div>
+              <div>Bills<br><strong id="upBills">$0.00</strong></div>
+              <div>Net<br><strong id="upNet">$0.00</strong></div>
+            </div>
+            <div class="upcoming-list" id="upcomingList" aria-live="polite"></div>
+          </div>
+        </section>
+      </div>
     </div>
 
-    <div id="insights-whatif" class="hide">
-      <section class="card">
-        <div class="card-body">
-          <div class="goal-meta">
-            <div class="icon-pill" style="background:#e0f2fe">🧮</div>
-            <div>
-              <div style="font-weight:600">What If Scenario</div>
-              <div class="muted">See the impact of saving more each month</div>
-            </div>
-          </div>
-          <div style="margin-top:16px">
-            <div class="slider-label"><span>Save extra per month</span><strong id="whatIfExtraLabel">$0</strong></div>
-            <input type="range" id="whatIfExtra" min="0" max="1000" step="50" value="0">
-            <div class="row" style="margin-top:4px">
-              <span class="muted">$0</span>
-              <span class="right muted">$1,000</span>
-            </div>
-          </div>
-          <div style="margin-top:16px">
-            <div class="slider-label"><span>Time horizon</span><strong id="whatIfHorizonLabel">12 months</strong></div>
-            <input type="range" id="whatIfHorizon" min="3" max="36" step="3" value="12">
-            <div class="row" style="margin-top:4px">
-              <span class="muted">3 months</span>
-              <span class="right muted">3 years</span>
-            </div>
-          </div>
-          <div class="whatif-output">
-            <div class="output-box">
-              <span>New monthly savings</span>
-              <strong id="whatIfMonthly">$0</strong>
-            </div>
-            <div class="output-box">
-              <span>Total in <span id="whatIfMonthsLabel">12</span> months</span>
-              <strong id="whatIfTotal">$0</strong>
-            </div>
-          </div>
-        </div>
-      </section>
-    </div>
-
-    <div class="kpi-row">
-      <div class="kpi-mini">
-        <div class="label">Total Transactions</div>
-        <div class="value" id="insightsTotalTx">0</div>
-      </div>
-      <div class="kpi-mini">
-        <div class="label">Active Goals</div>
-        <div class="value" id="insightsActiveGoals">0</div>
-      </div>
-      <div class="kpi-mini">
-        <div class="label">This Month Income</div>
-        <div class="value" id="insightsIncome">$0</div>
-      </div>
-      <div class="kpi-mini">
-        <div class="label">This Month Spending</div>
-        <div class="value" id="insightsSpending">$0</div>
-      </div>
+    <div class="summary-row" id="payPeriodHeader" style="display:none">
+      <button class="nav-btn" id="prevPeriod" aria-label="Previous pay period">◀</button>
+      <div class="badge" id="periodLabel">—</div>
+      <button class="nav-btn" id="nextPeriod" aria-label="Next pay period">▶</button>
     </div>
   </section>
 
@@ -1576,54 +1487,8 @@ function setActiveTab(tab){
   Object.keys(dom.sections).forEach(k=>{ dom.sections[k].classList.toggle('hide', k!==tab); });
   dom.appbarNav.style.display = (tab==='home') ? '' : 'none';
   if (tab==='home') renderHome();
-  if (tab==='goals') renderGoals();
-  if (tab==='insights') renderInsights();
   if (tab==='transactions') renderTransactions();
   if (tab==='calendar') renderCalendar();
-}
-function setInsightsTab(tab){
-  dom.insightsTabs.forEach(btn=>btn.classList.toggle('active', btn.getAttribute('data-insights-tab')===tab));
-  if (dom.insightsWeekly) dom.insightsWeekly.classList.toggle('hide', tab!=='weekly');
-  if (dom.insightsTrends) dom.insightsTrends.classList.toggle('hide', tab!=='trends');
-  if (dom.insightsWhatif) dom.insightsWhatif.classList.toggle('hide', tab!=='whatif');
-}
-function openGoalModal(goal){
-  dom.goalModalOverlay.style.display='flex';
-  dom.goalModalOverlay.setAttribute('aria-hidden','false');
-  dom.goalName.value = goal ? goal.name : '';
-  dom.goalType.value = goal ? goal.type : 'General Savings';
-  dom.goalTarget.value = goal ? goal.targetAmount : '';
-  dom.goalCurrent.value = goal ? goal.currentAmount : '';
-  dom.goalDate.value = goal ? goal.targetDate : '';
-  dom.goalMonthly.value = goal ? goal.monthlyContribution : '';
-  const priority = goal ? goal.priority : 'medium';
-  dom.goalPriorityGroup.querySelectorAll('button').forEach(btn=>{
-    btn.classList.toggle('active', btn.dataset.priority===priority);
-  });
-  dom.goalModalCreate.textContent = goal ? 'Save Goal' : 'Create Goal';
-  dom.goalModalCreate.dataset.editingId = goal ? goal.id : '';
-}
-function closeGoalModal(){
-  dom.goalModalOverlay.style.display='none';
-  dom.goalModalOverlay.setAttribute('aria-hidden','true');
-  dom.goalModalCreate.dataset.editingId = '';
-}
-function openTxnModal(){
-  dom.txnModalOverlay.style.display='flex';
-  dom.txnModalOverlay.setAttribute('aria-hidden','false');
-  dom.txnAmount.value='';
-  dom.txnDesc.value='';
-  dom.txnDate.value=todayStr();
-  dom.txnCategory.value='';
-  dom.txnRecurring.checked=false;
-  dom.txnTypeSwitch.querySelectorAll('button').forEach((btn, idx)=>{
-    btn.classList.toggle('active', idx===0);
-  });
-  dom.txnCategoryWrap.style.display='';
-}
-function closeTxnModal(){
-  dom.txnModalOverlay.style.display='none';
-  dom.txnModalOverlay.setAttribute('aria-hidden','true');
 }
 function initTabs(){
   dom.tabs.forEach(btn=>{
@@ -1635,22 +1500,16 @@ function initTabs(){
 }
 function initHome(){
   if (dom.addTransactionBtn){
-    dom.addTransactionBtn.addEventListener('click', openTxnModal);
+    dom.addTransactionBtn.addEventListener('click', ()=>setActiveTab('transactions'));
   }
   if (dom.recentAddBtn){
-    dom.recentAddBtn.addEventListener('click', openTxnModal);
+    dom.recentAddBtn.addEventListener('click', ()=>setActiveTab('transactions'));
   }
   if (dom.setGoalBtn){
-    dom.setGoalBtn.addEventListener('click', ()=>{
-      setActiveTab('goals');
-      openGoalModal();
-    });
+    dom.setGoalBtn.addEventListener('click', ()=>{ setActiveTab('templates'); toast('Set up a recurring goal from templates.'); });
   }
   if (dom.runScenarioBtn){
-    dom.runScenarioBtn.addEventListener('click', ()=>{
-      setActiveTab('insights');
-      setInsightsTab('whatif');
-    });
+    dom.runScenarioBtn.addEventListener('click', ()=>{ setActiveTab('tools'); byId('whatIfNumber')?.focus(); });
   }
   // appbar nav buttons
   dom.appPrev.addEventListener('click', ()=>{ state.payPeriodOffset=(state.payPeriodOffset||0)-1; saveState(); renderHome(); });
