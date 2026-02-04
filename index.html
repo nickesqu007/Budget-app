@@ -3,13 +3,16 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>My Budget v1.4.1</title>
+<title>My Budget v1.4.5</title>
 <link rel="manifest" href="./manifest.webmanifest">
 <meta name="theme-color" content="#f7f8fb" />
 <link rel="icon" href="./icon-192.png" sizes="192x192">
 <link rel="apple-touch-icon" href="./icon-192.png">
 <!--
-v1.4.1 changes:
+v1.4.5 changes:
+- Premium UI polish, consistent formatting, reliable form validation (no $0/blank), action feedback, and trust signals.
+- Validation hardening for transaction amounts.
+- Navigation stability fixes.
 - Fixed parseAmount handling for invalid input (test + logic alignment).
 - CSV: Debit/Credit mode now treats Debit as ABS(outflow). Works even if your bank exports negative debits. One-pass import + Undo.
 - Home: pay-period navigation moved to the sticky top app bar.
@@ -25,7 +28,12 @@ Notes:
   :root{
     --bg:#f7f8fb; --card:#ffffff; --muted:#6b7280; --text:#111827;
     --accent:#22c55e; --accent-2:#0ea5e9; --danger:#ef4444; --ok:#16a34a;
-    --border:#e5e7eb; --shadow:0 10px 24px rgba(15,23,42,.08); --radius:16px;
+    --border:#e5e7eb;
+    --radius-card:16px; --radius-input:12px; --radius-pill:999px;
+    --shadow-soft:0 8px 18px rgba(15,23,42,.08);
+    --shadow-med:0 12px 30px rgba(15,23,42,.12);
+    --space-8:8px; --space-12:12px; --space-16:16px; --space-24:24px; --space-32:32px;
+    --transition-fast:150ms ease; --transition:200ms ease;
   }
   *{box-sizing:border-box} html,body{height:100%}
   body{margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
@@ -33,12 +41,15 @@ Notes:
   .wrap{max-width:1200px; margin:0 auto; padding:18px 18px 40px}
   header.appbar{position:sticky; top:0; z-index:5; background:rgba(247,248,251,.95);
     backdrop-filter: blur(6px); padding:12px 16px; border-bottom:1px solid var(--border); display:flex; gap:12px; align-items:center; justify-content:space-between}
-  .tabs{display:flex; gap:8px; flex-wrap:wrap}
-  .tab{padding:8px 12px; border:1px solid var(--border); background:#fff; border-radius:999px; cursor:pointer; color:#334155}
-  .tab.active{background:#111827; color:#fff; border-color:#111827}
+  .menu-wrap{position:relative}
+  .menu-btn{width:auto; padding:8px 14px}
+  .menu-dropdown{position:absolute; top:calc(100% + 8px); left:0; background:#fff; border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow-soft); min-width:180px; padding:8px; display:flex; flex-direction:column; gap:6px; z-index:10; transition:opacity var(--transition), transform var(--transition); transform:translateY(-4px)}
+  .menu-dropdown:not(.hide){transform:translateY(0)}
+  .menu-dropdown button{width:100%; text-align:left; padding:8px 10px; border-radius:10px; border:1px solid transparent; background:#fff; cursor:pointer}
+  .menu-dropdown button.active{background:#111827; color:#fff}
   .header-right{display:flex; gap:8px; align-items:center}
   .nav-btn{background:#fff;border:1px solid var(--border);border-radius:999px;padding:6px 10px;cursor:pointer}
-  .pill{padding:8px 12px; border:1px solid var(--border); border-radius:999px; background:#fff; box-shadow:var(--shadow); display:inline-flex; gap:8px; align-items:center}
+  .pill{padding:8px 12px; border:1px solid var(--border); border-radius:var(--radius-pill); background:#fff; box-shadow:var(--shadow-soft); display:inline-flex; gap:8px; align-items:center}
   .pill strong{font-variant-numeric: tabular-nums}
   .net{background: rgba(14,165,233,.08); border-color:#dbeafe}
   .safe{background: rgba(34,197,94,.08); border-color:#dcfce7}
@@ -49,13 +60,15 @@ Notes:
   .home-hero p{margin:6px 0 0; color:var(--muted)}
   .hero-actions{display:flex; gap:10px; flex-wrap:wrap}
   .kpi-grid{display:grid; gap:16px; grid-template-columns:repeat(5, minmax(180px, 1fr)); margin:16px 0}
-  .kpi-card{background:var(--card); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px; display:flex; gap:12px; align-items:center}
+  .kpi-card{background:var(--card); border:1px solid var(--border); border-radius:var(--radius-card); box-shadow:var(--shadow-soft); padding:16px; display:flex; gap:12px; align-items:center; transition:transform var(--transition)}
+  .kpi-card:hover{transform:translateY(-2px)}
   .kpi-icon{width:38px; height:38px; border-radius:12px; background:#f1f5f9; display:flex; align-items:center; justify-content:center; font-size:1.1rem}
   .kpi-label{font-size:.85rem; color:var(--muted); text-transform:uppercase; letter-spacing:.04em}
   .kpi-value{font-size:1.4rem; font-weight:700; margin:6px 0}
   .kpi-sub{font-size:.8rem; color:var(--muted)}
   .home-grid{display:grid; gap:16px; grid-template-columns:2fr 1fr}
-  .card{background:var(--card); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); margin-top:12px}
+  .card{background:var(--card); border:1px solid var(--border); border-radius:var(--radius-card); box-shadow:var(--shadow-soft); margin-top:12px; transition:transform var(--transition), box-shadow var(--transition)}
+  .card:hover{transform:translateY(-2px); box-shadow:var(--shadow-med)}
   .card h2{margin:0; font-size:1.05rem}
   .card-header{padding:14px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between}
   .card-body{padding:16px}
@@ -65,17 +78,22 @@ Notes:
   fieldset{border:1px dashed var(--border); padding:12px; border-radius:12px; margin:0 0 12px}
   legend{color:var(--muted); padding:0 8px; font-size:.9rem}
   label{display:block; font-size:.9rem; color:#475569; margin-bottom:6px}
-  input, select, button, textarea{width:100%; padding:9px 10px; border-radius:10px; border:1px solid var(--border); background:#fff; color:var(--text); font-size:.95rem}
+  input, select, button, textarea{width:100%; padding:9px 10px; border-radius:var(--radius-input); border:1px solid var(--border); background:#fff; color:var(--text); font-size:.95rem; transition:border var(--transition-fast), box-shadow var(--transition-fast)}
+  input:focus, select:focus, textarea:focus{outline:none; border-color:rgba(34,197,94,.6); box-shadow:0 0 0 3px rgba(34,197,94,.15)}
   input[type="number"]{font-variant-numeric: tabular-nums}
   textarea{min-height:64px; resize:vertical}
   .row{display:grid; grid-template-columns:1fr 1fr; gap:10px}
   .row-3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px}
   .actions{display:flex; gap:10px; margin-top:8px}
-  .btn{cursor:pointer; border-radius:999px; border:1px solid var(--border); background:#fff; padding:8px 14px}
+  .btn{cursor:pointer; border-radius:var(--radius-pill); border:1px solid var(--border); background:#fff; padding:8px 14px; transition:transform var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast)}
+  .btn:hover{transform:translateY(-1px); box-shadow:var(--shadow-soft)}
+  .btn:disabled{opacity:.6; cursor:not-allowed; transform:none; box-shadow:none}
+  .btn.active{background:#111827; color:#fff; border-color:#111827}
   .btn-primary{background:var(--accent); border-color:var(--accent); color:#fff}
   .btn-ghost{background:#fff; border:1px solid var(--border); color:#111827}
   .btn-danger{background:#fee2e2; border:1px solid #fecaca; color:#991b1b}
   .btn-sm{padding:6px 10px; font-size:.85rem}
+  .error{color:#b91c1c; font-size:.85rem; margin-top:6px; display:none}
   .badges{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
   .badge{background:#f8fafc; border:1px solid var(--border); border-radius:999px; padding:6px 10px; font-variant-numeric: tabular-nums; color:#334155}
   table{width:100%; border-collapse:collapse; border:1px solid var(--border); border-radius:10px; overflow:hidden}
@@ -86,6 +104,11 @@ Notes:
   .mono{font-variant-numeric:tabular-nums}
   .toast{position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#111827; color:#fff; border:1px solid #0f172a; border-radius:12px; padding:10px 14px; box-shadow:var(--shadow); z-index:50; opacity:0; pointer-events:none; transition:opacity .2s ease, transform .2s ease}
   .toast.show{opacity:1; pointer-events:auto; transform:translateX(-50%) translateY(-6px)}
+  .toast-area{position:fixed; bottom:20px; left:50%; transform:translateX(-50%); display:flex; flex-direction:column; gap:8px; z-index:60}
+  .toast-item{min-width:240px; background:#111827; color:#fff; border:1px solid #0f172a; border-radius:12px; padding:10px 14px; box-shadow:var(--shadow-soft); opacity:0; transform:translateY(6px); transition:opacity var(--transition), transform var(--transition)}
+  .toast-item.show{opacity:1; transform:translateY(0)}
+  .toast-item.success{background:#0f3d1f; border-color:#14532d}
+  .toast-item.error{background:#4c1d1d; border-color:#7f1d1d}
   .mini-help{font-size:.85rem; color:var(--muted); margin-top:8px}
   .filters{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
   .filters select, .filters input[type="date"]{width:auto}
@@ -107,14 +130,65 @@ Notes:
   .glance-row:last-child{border-bottom:none}
   .glance-metrics{display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin:10px 0}
   .glance-metrics div{background:#f8fafc; border:1px solid var(--border); border-radius:10px; padding:8px; text-align:center; font-size:.85rem}
+  .page-header{display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; padding:10px 0 4px}
+  .page-header h1{margin:0; font-size:2rem}
+  .page-header p{margin:6px 0 0; color:var(--muted)}
+  .goals-summary{display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap}
+  .progress-bar{height:10px; background:#e5e7eb; border-radius:999px; overflow:hidden}
+  .progress-fill{height:100%; background:var(--accent); border-radius:999px}
+  .goals-grid{display:grid; gap:16px; grid-template-columns:repeat(3, minmax(220px, 1fr))}
+  .goal-card{position:relative; padding:16px; border-radius:16px; background:#fff; border:1px solid var(--border); box-shadow:var(--shadow)}
+  .goal-card .goal-actions{position:absolute; top:12px; right:12px; display:flex; gap:8px}
+  .icon-pill{width:40px; height:40px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:1.1rem}
+  .goal-meta{display:flex; align-items:center; gap:12px}
+  .goal-type{font-size:.75rem; text-transform:uppercase; letter-spacing:.08em; color:var(--muted)}
+  .goal-amount{font-size:1.4rem; font-weight:700; margin:8px 0}
+  .goal-remaining{display:flex; justify-content:space-between; font-size:.85rem; color:var(--muted)}
+  .goal-helper{background:#f8fafc; border:1px dashed var(--border); border-radius:12px; padding:10px; font-size:.85rem; color:#475569; margin:10px 0}
+  .pill-btn{padding:6px 12px; border-radius:999px; border:1px solid var(--border); background:#fff; cursor:pointer}
+  .pill-btn.active{background:#111827; color:#fff; border-color:#111827}
+  .insights-tabs{display:flex; gap:10px; flex-wrap:wrap; margin:12px 0 20px}
+  .insights-tab{display:flex; gap:6px; align-items:center; padding:6px 12px; border-radius:999px; border:1px solid var(--border); background:#fff; cursor:pointer; font-size:.9rem}
+  .insights-tab.active{background:#111827; color:#fff; border-color:#111827}
+  .insights-grid{display:grid; gap:16px; grid-template-columns:1fr 1fr}
+  .kpi-row{display:grid; gap:16px; grid-template-columns:repeat(4, minmax(200px, 1fr)); margin-top:16px}
+  .kpi-mini{background:#fff; border:1px solid var(--border); border-radius:14px; padding:14px; box-shadow:var(--shadow)}
+  .kpi-mini .label{font-size:.8rem; color:var(--muted)}
+  .kpi-mini .value{font-size:1.3rem; font-weight:700; margin-top:6px}
+  .whatif-row{display:grid; gap:16px; grid-template-columns:1fr 1fr}
+  .whatif-output{display:grid; gap:12px; margin-top:16px}
+  .whatif-output .output-box{display:flex; align-items:center; justify-content:space-between; padding:12px 14px; border-radius:12px; border:1px solid var(--border); background:#f8fafc}
+  .slider-label{display:flex; align-items:center; justify-content:space-between; font-size:.9rem; color:#475569}
+  .modal-overlay{position:fixed; inset:0; background:rgba(15,23,42,.55); backdrop-filter:blur(2px); display:none; align-items:center; justify-content:center; padding:20px; z-index:50; opacity:0; transition:opacity var(--transition)}
+  .modal-overlay.is-open{opacity:1}
+  .modal{background:#fff; border-radius:var(--radius-card); padding:20px; width:min(520px, 100%); box-shadow:var(--shadow-med); position:relative; transform:translateY(6px); transition:transform var(--transition)}
+  .modal-overlay.is-open .modal{transform:translateY(0)}
+  .modal h3{margin:0 0 6px}
+  .modal .close-btn{position:absolute; top:12px; right:12px; border:none; background:transparent; font-size:1.2rem; cursor:pointer}
+  .modal .modal-actions{display:flex; gap:12px; justify-content:flex-end; margin-top:16px}
+  .segmented{display:flex; background:#f3f4f6; padding:4px; border-radius:999px; gap:4px}
+  .segmented button{border:none; background:transparent; padding:8px 16px; border-radius:999px; cursor:pointer}
+  .segmented button.active{background:#fff; box-shadow:var(--shadow)}
+  .toggle-row{display:flex; align-items:center; justify-content:space-between; gap:12px}
+  .toggle-switch{position:relative; width:42px; height:24px}
+  .toggle-switch input{opacity:0; width:0; height:0}
+  .toggle-slider{position:absolute; inset:0; background:#e5e7eb; border-radius:999px; transition:.2s}
+  .toggle-slider:before{content:""; position:absolute; width:18px; height:18px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.2s; box-shadow:0 2px 6px rgba(15,23,42,.2)}
+  .toggle-switch input:checked + .toggle-slider{background:var(--accent)}
+  .toggle-switch input:checked + .toggle-slider:before{transform:translateX(18px)}
+  .priority-group{display:flex; gap:8px}
+  .priority-group button{flex:1}
   @media (max-width: 1100px){ .kpi-grid{grid-template-columns:repeat(2, minmax(180px, 1fr));} }
-  @media (max-width: 900px){ .home-grid{grid-template-columns:1fr;} }
+  @media (max-width: 900px){ .home-grid{grid-template-columns:1fr;} .insights-grid{grid-template-columns:1fr;} }
   @media (max-width: 700px){
     .row, .row-3{grid-template-columns:1fr}
     .home-hero{align-items:flex-start}
     .kpi-grid{grid-template-columns:1fr}
     .bar-row{grid-template-columns:1fr}
     .glance-metrics{grid-template-columns:1fr}
+    .goals-grid{grid-template-columns:1fr}
+    .kpi-row{grid-template-columns:1fr}
+    .whatif-row{grid-template-columns:1fr}
   }
   .summary-row{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:8px}
   /* Calendar */
@@ -134,20 +208,22 @@ Notes:
 <body>
 <div class="wrap">
   <header class="appbar">
-    <div class="tabs" role="tablist" aria-label="Navigation">
-      <button class="tab active" data-tab="home" role="tab" aria-selected="true">Home</button>
-      <button class="tab" data-tab="goals" role="tab">Goals</button>
-      <button class="tab" data-tab="insights" role="tab">Insights</button>
-      <button class="tab" data-tab="transactions" role="tab">Transactions</button>
-      <button class="tab" data-tab="calendar" role="tab">Calendar</button>
-      <button class="tab" data-tab="tools" role="tab">Tools</button>
-      <button class="tab" data-tab="templates" role="tab">Templates</button>
+    <div class="menu-wrap">
+      <button class="btn btn-ghost menu-btn" id="menuBtn" type="button" aria-haspopup="true" aria-expanded="false">Menu ▾</button>
+      <div class="menu-dropdown hide" id="menuDropdown" role="menu">
+        <button type="button" role="menuitem" data-tab="home" class="active">Home</button>
+        <button type="button" role="menuitem" data-tab="transactions">Transactions</button>
+        <button type="button" role="menuitem" data-tab="calendar">Calendar</button>
+        <button type="button" role="menuitem" data-tab="insights">Insights</button>
+        <button type="button" role="menuitem" data-tab="goals">Goals</button>
+      </div>
     </div>
     <div class="header-right" id="appbarNav" style="display:none">
       <button class="nav-btn" id="appPrev" title="Previous pay period">◀</button>
       <div class="badge" id="appPeriodLabel">—</div>
       <button class="nav-btn" id="appNext" title="Next pay period">▶</button>
     </div>
+    <div class="muted" id="lastSavedLabel" style="font-size:.8rem">Last saved: —</div>
   </header>
 
   <!-- HOME -->
@@ -205,86 +281,6 @@ Notes:
           <div class="kpi-sub">Spending vs income</div>
         </div>
       </div>
-      <div class="kpi-card">
-        <div class="kpi-icon">💹</div>
-        <div>
-          <div class="kpi-label">Savings rate</div>
-          <div class="kpi-value" id="savingsRate">0%</div>
-          <div class="kpi-sub">Net vs income</div>
-        </div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-icon">📉</div>
-        <div>
-          <div class="kpi-label">Debt pressure</div>
-          <div class="kpi-value" id="debtPressure">0%</div>
-          <div class="kpi-sub">Spending vs income</div>
-        </div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-icon">💹</div>
-        <div>
-          <div class="kpi-label">Savings rate</div>
-          <div class="kpi-value" id="savingsRate">0%</div>
-          <div class="kpi-sub">Net vs income</div>
-        </div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-icon">📉</div>
-        <div>
-          <div class="kpi-label">Debt pressure</div>
-          <div class="kpi-value" id="debtPressure">0%</div>
-          <div class="kpi-sub">Spending vs income</div>
-        </div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-icon">💹</div>
-        <div>
-          <div class="kpi-label">Savings rate</div>
-          <div class="kpi-value" id="savingsRate">0%</div>
-          <div class="kpi-sub">Net vs income</div>
-        </div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-icon">📉</div>
-        <div>
-          <div class="kpi-label">Debt pressure</div>
-          <div class="kpi-value" id="debtPressure">0%</div>
-          <div class="kpi-sub">Spending vs income</div>
-        </div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-icon">💹</div>
-        <div>
-          <div class="kpi-label">Savings rate</div>
-          <div class="kpi-value" id="savingsRate">0%</div>
-          <div class="kpi-sub">Net vs income</div>
-        </div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-icon">📉</div>
-        <div>
-          <div class="kpi-label">Debt pressure</div>
-          <div class="kpi-value" id="debtPressure">0%</div>
-          <div class="kpi-sub">Spending vs income</div>
-        </div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-icon">💹</div>
-        <div>
-          <div class="kpi-label">Savings rate</div>
-          <div class="kpi-value" id="savingsRate">0%</div>
-          <div class="kpi-sub">Net vs income</div>
-        </div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-icon">📉</div>
-        <div>
-          <div class="kpi-label">Debt pressure</div>
-          <div class="kpi-value" id="debtPressure">0%</div>
-          <div class="kpi-sub">Spending vs income</div>
-        </div>
-      </div>
     </div>
 
     <div class="home-grid">
@@ -312,7 +308,7 @@ Notes:
         <section class="card">
           <div class="card-header">
             <h2>Recent Transactions</h2>
-            <button class="btn btn-ghost btn-sm" id="recentAddBtn" type="button">+ Add</button>
+            <button class="btn btn-ghost btn-sm" id="recentAddBtn" type="button">Add transaction</button>
           </div>
           <div class="card-body">
             <div class="transactions-list" id="recentTransactions"></div>
@@ -377,436 +373,263 @@ Notes:
       <button class="btn btn-primary" id="newGoalBtn" type="button">+ New Goal</button>
     </div>
 
-    <div class="home-grid">
-      <div>
-        <section class="card">
-          <div class="card-header">
-            <h2>Cash Flow Trend</h2>
-            <span class="muted">Last 6 weeks</span>
+    <section class="card">
+      <div class="card-body">
+        <div class="goals-summary">
+          <div>
+            <div class="muted">Total Progress</div>
+            <div class="goal-amount"><span id="totalGoalsSaved">$0</span> <span class="muted">/ <span id="totalGoalsTarget">$0</span></span></div>
           </div>
-          <div class="card-body">
-            <div class="chart-area" id="cashflowChart" aria-label="Cash flow trend chart"></div>
+          <div class="right">
+            <div class="goal-amount" id="totalGoalsPercent">0%</div>
+            <div class="muted">complete</div>
           </div>
-        </section>
-
-        <section class="card">
-          <div class="card-header">
-            <h2>Spending by Category</h2>
-            <span class="muted">This month</span>
-          </div>
-          <div class="card-body">
-            <div id="categoryChart"></div>
-          </div>
-        </section>
-
-        <section class="card">
-          <div class="card-header">
-            <h2>Recent Transactions</h2>
-            <button class="btn btn-ghost btn-sm" id="recentAddBtn" type="button">+ Add</button>
-          </div>
-          <div class="card-body">
-            <div class="transactions-list" id="recentTransactions"></div>
-          </div>
-        </section>
+        </div>
+        <div class="progress-bar" style="margin-top:12px">
+          <div class="progress-fill" id="totalGoalsBar" style="width:0%"></div>
+        </div>
       </div>
 
-      <div>
-        <section class="card">
-          <div class="card-header">
-            <h2>This week’s insight</h2>
-          </div>
-          <div class="card-body">
-            <p class="muted" id="insightSummary">Add transactions to unlock weekly insights.</p>
-            <div class="insight-box">
-              <div class="insight-label">What matters</div>
-              <div id="insightWhatMatters">—</div>
-            </div>
-            <div class="insight-box">
-              <div class="insight-label">Suggested action</div>
-              <div id="insightAction">—</div>
-            </div>
-            <div class="mini-help" id="wkTrend">vs 4-wk avg: —</div>
-          </div>
-        </section>
-
-        <section class="card">
-          <div class="card-header">
-            <h2>Month at a Glance</h2>
-          </div>
-          <div class="card-body">
-            <div class="glance-row"><span>Income</span><strong id="monthIncome">$0.00</strong></div>
-            <div class="glance-row"><span>Spending</span><strong id="monthSpending">$0.00</strong></div>
-            <div class="glance-row"><span>Projected end</span><strong id="monthProjected">$0.00</strong></div>
-            <div class="glance-row"><span>Projected to payday</span><strong id="projectedToPayday">$0.00</strong></div>
-            <div class="muted" style="margin-top:10px">Next 7 days</div>
-            <div class="glance-metrics">
-              <div>Income<br><strong id="upIncome">$0.00</strong></div>
-              <div>Bills<br><strong id="upBills">$0.00</strong></div>
-              <div>Net<br><strong id="upNet">$0.00</strong></div>
-            </div>
-            <div class="upcoming-list" id="upcomingList" aria-live="polite"></div>
-          </div>
-        </section>
-      </div>
-    </div>
-
-    <div class="summary-row" id="payPeriodHeader" style="display:none">
-      <button class="nav-btn" id="prevPeriod" aria-label="Previous pay period">◀</button>
-      <div class="badge" id="periodLabel">—</div>
-      <button class="nav-btn" id="nextPeriod" aria-label="Next pay period">▶</button>
-    </div>
+    <div class="goals-grid" id="goalsGrid"></div>
   </section>
 
-  <!-- GOALS -->
-  <section id="tab-goals" class="hide">
+  <!-- INSIGHTS -->
+  <section id="tab-insights" class="hide">
     <div class="page-header">
       <div>
-        <h1>Your Goals</h1>
-        <p>Track progress toward what matters most</p>
+        <h1>Insights &amp; Reports</h1>
+        <p>Understand your money patterns and plan ahead</p>
       </div>
-      <button class="btn btn-primary" id="newGoalBtn" type="button">+ New Goal</button>
     </div>
 
-    <div class="home-grid">
-      <div>
-        <section class="card">
-          <div class="card-header">
-            <h2>Cash Flow Trend</h2>
-            <span class="muted">Last 6 weeks</span>
-          </div>
-          <div class="card-body">
-            <div class="chart-area" id="cashflowChart" aria-label="Cash flow trend chart"></div>
-          </div>
-        </section>
+    <div class="insights-tabs">
+      <button class="insights-tab active" data-insights-tab="weekly">Weekly Insights</button>
+      <button class="insights-tab" data-insights-tab="trends">Trends</button>
+      <button class="insights-tab" data-insights-tab="whatif">What If</button>
+    </div>
 
-        <section class="card">
-          <div class="card-header">
-            <h2>Spending by Category</h2>
-            <span class="muted">This month</span>
-          </div>
-          <div class="card-body">
-            <div id="categoryChart"></div>
-          </div>
-        </section>
-
-        <section class="card">
-          <div class="card-header">
-            <h2>Recent Transactions</h2>
-            <button class="btn btn-ghost btn-sm" id="recentAddBtn" type="button">+ Add</button>
-          </div>
-          <div class="card-body">
-            <div class="transactions-list" id="recentTransactions"></div>
-          </div>
-        </section>
-      </div>
-
-      <div>
-        <section class="card">
-          <div class="card-header">
-            <h2>This week’s insight</h2>
-          </div>
-          <div class="card-body">
-            <p class="muted" id="insightSummary">Add transactions to unlock weekly insights.</p>
-            <div class="insight-box">
-              <div class="insight-label">What matters</div>
-              <div id="insightWhatMatters">—</div>
+    <div id="insights-weekly">
+      <section class="card">
+        <div class="card-body">
+          <div class="goal-meta">
+            <div class="icon-pill" style="background:#e0f2fe">💡</div>
+            <div>
+              <div style="font-weight:600">Weekly insight</div>
+              <div class="muted">Personalized based on your latest activity</div>
             </div>
-            <div class="insight-box">
-              <div class="insight-label">Suggested action</div>
-              <div id="insightAction">—</div>
-            </div>
-            <div class="mini-help" id="wkTrend">vs 4-wk avg: —</div>
           </div>
-        </section>
+          <p id="weeklyInsightText" style="margin-top:12px">Add more transactions to unlock detailed insights.</p>
+        </div>
+      </section>
+    </div>
 
+    <div id="insights-trends" class="hide">
+      <div class="insights-grid">
         <section class="card">
           <div class="card-header">
-            <h2>Month at a Glance</h2>
+            <h2>Monthly Spending</h2>
           </div>
           <div class="card-body">
-            <div class="glance-row"><span>Income</span><strong id="monthIncome">$0.00</strong></div>
-            <div class="glance-row"><span>Spending</span><strong id="monthSpending">$0.00</strong></div>
-            <div class="glance-row"><span>Projected end</span><strong id="monthProjected">$0.00</strong></div>
-            <div class="glance-row"><span>Projected to payday</span><strong id="projectedToPayday">$0.00</strong></div>
-            <div class="muted" style="margin-top:10px">Next 7 days</div>
-            <div class="glance-metrics">
-              <div>Income<br><strong id="upIncome">$0.00</strong></div>
-              <div>Bills<br><strong id="upBills">$0.00</strong></div>
-              <div>Net<br><strong id="upNet">$0.00</strong></div>
+            <div class="chart-area" id="monthlySpendingChart" aria-label="Monthly spending chart"></div>
+            <div class="mini-help" id="monthlyTrendNote">Same as last month</div>
+          </div>
+        </section>
+        <section class="card">
+          <div class="card-header">
+            <h2>Where Your Money Goes</h2>
+          </div>
+          <div class="card-body">
+            <div class="home-grid" style="grid-template-columns:140px 1fr; align-items:center">
+              <div class="chart-area" style="height:140px" id="insightsCategoryChart" aria-label="Category breakdown"></div>
+              <div id="insightsCategoryList"></div>
             </div>
-            <div class="upcoming-list" id="upcomingList" aria-live="polite"></div>
           </div>
         </section>
       </div>
     </div>
 
-    <div class="summary-row" id="payPeriodHeader" style="display:none">
-      <button class="nav-btn" id="prevPeriod" aria-label="Previous pay period">◀</button>
-      <div class="badge" id="periodLabel">—</div>
-      <button class="nav-btn" id="nextPeriod" aria-label="Next pay period">▶</button>
+    <div id="insights-whatif" class="hide">
+      <section class="card">
+        <div class="card-body">
+          <div class="goal-meta">
+            <div class="icon-pill" style="background:#e0f2fe">🧮</div>
+            <div>
+              <div style="font-weight:600">What If Scenario</div>
+              <div class="muted">See the impact of saving more each month</div>
+            </div>
+          </div>
+          <div style="margin-top:16px">
+            <div class="slider-label"><span>Save extra per month</span><strong id="whatIfExtraLabel">$0</strong></div>
+            <input type="range" id="whatIfExtra" min="0" max="1000" step="50" value="0">
+            <div class="row" style="margin-top:4px">
+              <span class="muted">$0</span>
+              <span class="right muted">$1,000</span>
+            </div>
+          </div>
+          <div style="margin-top:16px">
+            <div class="slider-label"><span>Time horizon</span><strong id="whatIfHorizonLabel">12 months</strong></div>
+            <input type="range" id="whatIfHorizon" min="3" max="36" step="3" value="12">
+            <div class="row" style="margin-top:4px">
+              <span class="muted">3 months</span>
+              <span class="right muted">3 years</span>
+            </div>
+          </div>
+          <div class="whatif-output">
+            <div class="output-box">
+              <span>New monthly savings</span>
+              <strong id="whatIfMonthly">$0</strong>
+            </div>
+            <div class="output-box">
+              <span>Total in <span id="whatIfMonthsLabel">12</span> months</span>
+              <strong id="whatIfTotal">$0</strong>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
-  </section>
 
-  <!-- GOALS -->
-  <section id="tab-goals" class="hide">
-    <div class="page-header">
-      <div>
-        <h1>Your Goals</h1>
-        <p>Track progress toward what matters most</p>
+    <div class="kpi-row">
+      <div class="kpi-mini">
+        <div class="label">Total Transactions</div>
+        <div class="value" id="insightsTotalTx">0</div>
       </div>
-      <button class="btn btn-primary" id="newGoalBtn" type="button">+ New Goal</button>
-    </div>
-
-    <div class="home-grid">
-      <div>
-        <section class="card">
-          <div class="card-header">
-            <h2>Cash Flow Trend</h2>
-            <span class="muted">Last 6 weeks</span>
-          </div>
-          <div class="card-body">
-            <div class="chart-area" id="cashflowChart" aria-label="Cash flow trend chart"></div>
-          </div>
-        </section>
-
-        <section class="card">
-          <div class="card-header">
-            <h2>Spending by Category</h2>
-            <span class="muted">This month</span>
-          </div>
-          <div class="card-body">
-            <div id="categoryChart"></div>
-          </div>
-        </section>
-
-        <section class="card">
-          <div class="card-header">
-            <h2>Recent Transactions</h2>
-            <button class="btn btn-ghost btn-sm" id="recentAddBtn" type="button">+ Add</button>
-          </div>
-          <div class="card-body">
-            <div class="transactions-list" id="recentTransactions"></div>
-          </div>
-        </section>
+      <div class="kpi-mini">
+        <div class="label">Active Goals</div>
+        <div class="value" id="insightsActiveGoals">0</div>
       </div>
-
-      <div>
-        <section class="card">
-          <div class="card-header">
-            <h2>This week’s insight</h2>
-          </div>
-          <div class="card-body">
-            <p class="muted" id="insightSummary">Add transactions to unlock weekly insights.</p>
-            <div class="insight-box">
-              <div class="insight-label">What matters</div>
-              <div id="insightWhatMatters">—</div>
-            </div>
-            <div class="insight-box">
-              <div class="insight-label">Suggested action</div>
-              <div id="insightAction">—</div>
-            </div>
-            <div class="mini-help" id="wkTrend">vs 4-wk avg: —</div>
-          </div>
-        </section>
-
-        <section class="card">
-          <div class="card-header">
-            <h2>Month at a Glance</h2>
-          </div>
-          <div class="card-body">
-            <div class="glance-row"><span>Income</span><strong id="monthIncome">$0.00</strong></div>
-            <div class="glance-row"><span>Spending</span><strong id="monthSpending">$0.00</strong></div>
-            <div class="glance-row"><span>Projected end</span><strong id="monthProjected">$0.00</strong></div>
-            <div class="glance-row"><span>Projected to payday</span><strong id="projectedToPayday">$0.00</strong></div>
-            <div class="muted" style="margin-top:10px">Next 7 days</div>
-            <div class="glance-metrics">
-              <div>Income<br><strong id="upIncome">$0.00</strong></div>
-              <div>Bills<br><strong id="upBills">$0.00</strong></div>
-              <div>Net<br><strong id="upNet">$0.00</strong></div>
-            </div>
-            <div class="upcoming-list" id="upcomingList" aria-live="polite"></div>
-          </div>
-        </section>
+      <div class="kpi-mini">
+        <div class="label">This Month Income</div>
+        <div class="value" id="insightsIncome">$0</div>
+      </div>
+      <div class="kpi-mini">
+        <div class="label">This Month Spending</div>
+        <div class="value" id="insightsSpending">$0</div>
       </div>
     </div>
 
-    <div class="summary-row" id="payPeriodHeader" style="display:none">
-      <button class="nav-btn" id="prevPeriod" aria-label="Previous pay period">◀</button>
-      <div class="badge" id="periodLabel">—</div>
-      <button class="nav-btn" id="nextPeriod" aria-label="Next pay period">▶</button>
-    </div>
-  </section>
-
-  <!-- GOALS -->
-  <section id="tab-goals" class="hide">
-    <div class="page-header">
-      <div>
-        <h1>Your Goals</h1>
-        <p>Track progress toward what matters most</p>
+    <section class="card" style="margin-top:20px">
+      <div class="card-header">
+        <h2>Tools &amp; Templates</h2>
       </div>
-      <button class="btn btn-primary" id="newGoalBtn" type="button">+ New Goal</button>
-    </div>
+      <div class="card-body">
+        <div class="actions" style="margin-bottom:12px">
+          <button class="btn btn-ghost active" type="button" data-insights-panel="tools">Tools</button>
+          <button class="btn btn-ghost" type="button" data-insights-panel="templates">Templates</button>
+        </div>
+        <div id="insightsToolsPanel">
+          <div id="tab-tools">
+            <div class="card">
+              <h2>Import / Export</h2>
+              <div class="section-body">
+                <div class="actions">
+                  <button id="exportBtn" class="btn btn-ghost">Export JSON</button>
+                  <label for="importFile" class="btn btn-ghost" style="display:inline-flex; align-items:center; gap:8px; cursor:pointer">
+                    Import JSON <input id="importFile" type="file" accept="application/json" style="display:none" />
+                  </label>
+                  <label for="csvFile" class="btn btn-ghost" style="display:inline-flex; align-items:center; gap:8px; cursor:pointer">
+                    Import CSV <input id="csvFile" type="file" accept=".csv,text/csv" style="display:none" />
+                  </label>
+                  <button id="undoImportBtn" class="btn btn-ghost" title="Undo last import" disabled>Undo Last Import</button>
+                  <button id="resetBtn" class="btn btn-danger">⚠ Reset Data</button>
+                </div>
+              </div>
+            </div>
 
-    <div class="home-grid">
+            <div class="card">
+              <h2>Calculators</h2>
+              <div class="section-body">
+                <div class="row">
+                  <div>
+                    <label for="whatIfNumber">What-If amount</label>
+                    <input id="whatIfNumber" type="number" min="0" step="1" inputmode="decimal" />
+                    <div class="mini-help">Projected Balance (Net − What-If): <strong id="projectedBalance">$0.00</strong></div>
+                  </div>
+                  <div>
+                    <label for="calcAmount">Quick Calculator: Planned purchase</label>
+                    <input id="calcAmount" type="number" min="0" step="1" inputmode="decimal" placeholder="e.g., 250" />
+                    <div class="mini-help">New Balance (Net − Planned): <strong id="calcResult">$0.00</strong></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <h2>Sync (E2EE via GitHub Gist)</h2>
+              <div class="section-body">
+                <div class="mini-help">Bring your own token (gist scope). We store only encrypted data.</div>
+                <div class="row">
+                  <div>
+                    <label for="syncPass">Passphrase (don’t lose this)</label>
+                    <input id="syncPass" type="password" placeholder="Your passphrase" />
+                  </div>
+                  <div>
+                    <label for="syncToken">GitHub Token (gist scope)</label>
+                    <input id="syncToken" type="password" placeholder="ghp_..." />
+                  </div>
+                </div>
+                <div class="row">
+                  <div>
+                    <label for="syncId">Sync ID (Gist ID)</label>
+                    <input id="syncId" type="text" placeholder="e.g., a1b2c3d4..." />
+                  </div>
+                  <div class="actions" style="align-items:end">
+                    <button id="btnCreateGist" class="btn btn-primary" type="button" style="width:auto">Create New Sync</button>
+                    <button id="btnConnect" class="btn btn-ghost" type="button" style="width:auto">Connect</button>
+                    <button id="btnSyncNow" class="btn btn-ghost" type="button" style="width:auto" disabled>Sync Now</button>
+                    <button id="btnSignOut" class="btn btn-danger" type="button" style="width:auto">Sign out of Sync</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="insightsTemplatesPanel" class="hide">
+          <div id="tab-templates">
+            <div class="card">
+              <h2>Recurring Expense Templates</h2>
+              <div class="section-body">
+                <form id="tplForm">
+                  <fieldset>
+                    <legend>Create / Edit Template</legend>
+                    <div class="row-3">
+                      <div><label for="tplLabel">Label (e.g., Rent)</label><input id="tplLabel" type="text" required /></div>
       <div>
-        <section class="card">
-          <div class="card-header">
-            <h2>Cash Flow Trend</h2>
-            <span class="muted">Last 6 weeks</span>
-          </div>
-          <div class="card-body">
-            <div class="chart-area" id="cashflowChart" aria-label="Cash flow trend chart"></div>
-          </div>
-        </section>
-
-        <section class="card">
-          <div class="card-header">
-            <h2>Spending by Category</h2>
-            <span class="muted">This month</span>
-          </div>
-          <div class="card-body">
-            <div id="categoryChart"></div>
-          </div>
-        </section>
-
-        <section class="card">
-          <div class="card-header">
-            <h2>Recent Transactions</h2>
-            <button class="btn btn-ghost btn-sm" id="recentAddBtn" type="button">+ Add</button>
-          </div>
-          <div class="card-body">
-            <div class="transactions-list" id="recentTransactions"></div>
-          </div>
-        </section>
+        <label for="tplAmount">Amount</label>
+        <input id="tplAmount" type="number" min="0" step="0.01" inputmode="decimal" required />
+        <div id="tplAmountErr" class="error"></div>
       </div>
-
-      <div>
-        <section class="card">
-          <div class="card-header">
-            <h2>This week’s insight</h2>
-          </div>
-          <div class="card-body">
-            <p class="muted" id="insightSummary">Add transactions to unlock weekly insights.</p>
-            <div class="insight-box">
-              <div class="insight-label">What matters</div>
-              <div id="insightWhatMatters">—</div>
+                      <div><label for="tplFreq">Frequency</label>
+                        <select id="tplFreq">
+                          <option value="weekly">Weekly</option>
+                          <option value="biweekly">Biweekly</option>
+                          <option value="semimonthly">Semi-monthly (1st & 15th)</option>
+                          <option value="monthly">Monthly</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div id="tplAnchors" class="row-3" style="margin-top:8px">
+                      <div id="anchWeekly" class="hide"><label for="tplWeekday">Weekday</label>
+                        <select id="tplWeekday"><option value="0">Sunday</option><option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option></select>
+                      </div>
+                      <div id="anchBiweekly" class="hide"><label for="tplSeedDate">Seed date</label><input id="tplSeedDate" type="date" /></div>
+                      <div id="anchMonthly" class="hide"><label for="tplMonthDay">Day of month</label><input id="tplMonthDay" type="number" min="1" max="31" /></div>
+                    </div>
+                    <div class="row">
+                      <div><label for="tplStart">Start date</label><input id="tplStart" type="date" /></div>
+                      <div><label for="tplNotes">Notes (optional)</label><input id="tplNotes" type="text" /></div>
+                    </div>
+                    <div class="actions"><button class="btn btn-primary" id="tplSave" type="submit">Save Template</button><button class="btn btn-ghost" id="tplCancel" type="button">Cancel</button></div>
+                    <div id="tplErr" class="error" style="display:none">Please fill the highlighted fields.</div>
+                  </fieldset>
+                </form>
+                <div class="card" style="margin:12px 0 0">
+                  <h2>Templates List</h2>
+                  <div class="section-body" id="tplList" class="muted">No templates yet.</div>
+                </div>
+              </div>
             </div>
-            <div class="insight-box">
-              <div class="insight-label">Suggested action</div>
-              <div id="insightAction">—</div>
-            </div>
-            <div class="mini-help" id="wkTrend">vs 4-wk avg: —</div>
           </div>
-        </section>
-
-        <section class="card">
-          <div class="card-header">
-            <h2>Month at a Glance</h2>
-          </div>
-          <div class="card-body">
-            <div class="glance-row"><span>Income</span><strong id="monthIncome">$0.00</strong></div>
-            <div class="glance-row"><span>Spending</span><strong id="monthSpending">$0.00</strong></div>
-            <div class="glance-row"><span>Projected end</span><strong id="monthProjected">$0.00</strong></div>
-            <div class="glance-row"><span>Projected to payday</span><strong id="projectedToPayday">$0.00</strong></div>
-            <div class="muted" style="margin-top:10px">Next 7 days</div>
-            <div class="glance-metrics">
-              <div>Income<br><strong id="upIncome">$0.00</strong></div>
-              <div>Bills<br><strong id="upBills">$0.00</strong></div>
-              <div>Net<br><strong id="upNet">$0.00</strong></div>
-            </div>
-            <div class="upcoming-list" id="upcomingList" aria-live="polite"></div>
-          </div>
-        </section>
-      </div>
-    </div>
-
-    <div class="summary-row" id="payPeriodHeader" style="display:none">
-      <button class="nav-btn" id="prevPeriod" aria-label="Previous pay period">◀</button>
-      <div class="badge" id="periodLabel">—</div>
-      <button class="nav-btn" id="nextPeriod" aria-label="Next pay period">▶</button>
-    </div>
-  </section>
-
-  <!-- GOALS -->
-  <section id="tab-goals" class="hide">
-    <div class="page-header">
-      <div>
-        <h1>Your Goals</h1>
-        <p>Track progress toward what matters most</p>
-      </div>
-      <button class="btn btn-primary" id="newGoalBtn" type="button">+ New Goal</button>
-    </div>
-
-    <div class="home-grid">
-      <div>
-        <section class="card">
-          <div class="card-header">
-            <h2>Cash Flow Trend</h2>
-            <span class="muted">Last 6 weeks</span>
-          </div>
-          <div class="card-body">
-            <div class="chart-area" id="cashflowChart" aria-label="Cash flow trend chart"></div>
-          </div>
-        </section>
-
-        <section class="card">
-          <div class="card-header">
-            <h2>Spending by Category</h2>
-            <span class="muted">This month</span>
-          </div>
-          <div class="card-body">
-            <div id="categoryChart"></div>
-          </div>
-        </section>
-
-        <section class="card">
-          <div class="card-header">
-            <h2>Recent Transactions</h2>
-            <button class="btn btn-ghost btn-sm" id="recentAddBtn" type="button">+ Add</button>
-          </div>
-          <div class="card-body">
-            <div class="transactions-list" id="recentTransactions"></div>
-          </div>
-        </section>
-      </div>
-
-      <div>
-        <section class="card">
-          <div class="card-header">
-            <h2>This week’s insight</h2>
-          </div>
-          <div class="card-body">
-            <p class="muted" id="insightSummary">Add transactions to unlock weekly insights.</p>
-            <div class="insight-box">
-              <div class="insight-label">What matters</div>
-              <div id="insightWhatMatters">—</div>
-            </div>
-            <div class="insight-box">
-              <div class="insight-label">Suggested action</div>
-              <div id="insightAction">—</div>
-            </div>
-            <div class="mini-help" id="wkTrend">vs 4-wk avg: —</div>
-          </div>
-        </section>
-
-        <section class="card">
-          <div class="card-header">
-            <h2>Month at a Glance</h2>
-          </div>
-          <div class="card-body">
-            <div class="glance-row"><span>Income</span><strong id="monthIncome">$0.00</strong></div>
-            <div class="glance-row"><span>Spending</span><strong id="monthSpending">$0.00</strong></div>
-            <div class="glance-row"><span>Projected end</span><strong id="monthProjected">$0.00</strong></div>
-            <div class="glance-row"><span>Projected to payday</span><strong id="projectedToPayday">$0.00</strong></div>
-            <div class="muted" style="margin-top:10px">Next 7 days</div>
-            <div class="glance-metrics">
-              <div>Income<br><strong id="upIncome">$0.00</strong></div>
-              <div>Bills<br><strong id="upBills">$0.00</strong></div>
-              <div>Net<br><strong id="upNet">$0.00</strong></div>
-            </div>
-            <div class="upcoming-list" id="upcomingList" aria-live="polite"></div>
-          </div>
-        </section>
+        </div>
       </div>
     </div>
 
@@ -1050,10 +873,12 @@ Notes:
       <div>
         <label for="goalTarget">Target Amount</label>
         <input id="goalTarget" type="number" min="0" step="0.01" placeholder="10000">
+        <div id="goalTargetErr" class="error"></div>
       </div>
       <div>
         <label for="goalCurrent">Current Progress</label>
         <input id="goalCurrent" type="number" min="0" step="0.01" placeholder="0">
+        <div id="goalCurrentErr" class="error"></div>
       </div>
     </div>
     <div class="row" style="margin-top:12px">
@@ -1064,6 +889,7 @@ Notes:
       <div>
         <label for="goalMonthly">Monthly Contribution</label>
         <input id="goalMonthly" type="number" min="0" step="0.01" placeholder="500">
+        <div id="goalMonthlyErr" class="error"></div>
       </div>
     </div>
     <div style="margin-top:12px">
@@ -1093,6 +919,7 @@ Notes:
     <div style="margin-top:12px">
       <label for="txnAmount">Amount</label>
       <input id="txnAmount" type="number" min="0" step="0.01" placeholder="0.00">
+      <div id="txnAmountErr" class="error">Enter a valid amount greater than 0.</div>
     </div>
     <div style="margin-top:12px">
       <label for="txnDesc">Description</label>
@@ -1133,7 +960,20 @@ Notes:
   </div>
 </div>
 
-<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<div id="toastArea" class="toast-area" role="status" aria-live="polite"></div>
+
+<!-- Confirm Modal -->
+<div class="modal-overlay" id="confirmModalOverlay" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirmModalTitle">
+    <button class="close-btn" type="button" id="confirmModalClose">×</button>
+    <h3 id="confirmModalTitle">Confirm action</h3>
+    <p id="confirmModalMessage" class="muted" style="margin-top:8px"></p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="confirmModalCancel" type="button">Cancel</button>
+      <button class="btn btn-danger" id="confirmModalConfirm" type="button">Confirm</button>
+    </div>
+  </div>
+</div>
 
 <script>
 if ('serviceWorker' in navigator) {
@@ -1144,9 +984,28 @@ if ('serviceWorker' in navigator) {
 const LS_KEY='simple_budget_v11';
 const GOALS_KEY='budget_goals_v1';
 const fmt=new Intl.NumberFormat(undefined,{style:'currency',currency:getLikelyCurrency(),minimumFractionDigits:2,maximumFractionDigits:2});
+const dateFmt=new Intl.DateTimeFormat(undefined,{year:'numeric', month:'short', day:'numeric'});
 function getLikelyCurrency(){try{new Intl.NumberFormat(undefined,{style:'currency',currency:'USD'}).formatToParts(1);return(Intl.NumberFormat().resolvedOptions().currency||'USD')}catch{return'USD'}}
 function formatCurrency(n){return fmt.format(Number(n||0))}
+function formatDateDisplay(iso){if(!iso) return '—'; const d=new Date(iso); return Number.isNaN(d.getTime()) ? iso : dateFmt.format(d)}
 function parseAmount(v){if(typeof v==='number')return v;if(!v&&v!==0)return 0;v=String(v).replace(/[^0-9,.\-]/g,'').replace(',', '.');const num=Number(v);return Number.isFinite(num)?num:0}
+function validateAmountInput(raw){
+  const trimmed = String(raw ?? '').trim();
+  if (!trimmed) return { ok:false, value:0, error:'Please enter a valid amount.' };
+  let normalized = trimmed;
+  if (normalized.includes(',') && normalized.includes('.')){
+    normalized = normalized.replace(/,/g,'');
+  } else if (normalized.includes(',') && !normalized.includes('.')){
+    normalized = normalized.replace(',', '.');
+  }
+  if (!/[0-9]/.test(normalized)){
+    return { ok:false, value:0, error:'Please enter a valid amount.' };
+  }
+  const value = parseAmount(normalized);
+  if (!Number.isFinite(value)) return { ok:false, value:0, error:'Please enter a valid amount.' };
+  if (value <= 0) return { ok:false, value:0, error:'Amount must be greater than 0.' };
+  return { ok:true, value, error:'' };
+}
 function uid(){return Math.random().toString(36).slice(2)+Date.now().toString(36)}
 function nowIso(){return new Date().toISOString()}
 function todayStr(){return new Date().toISOString().slice(0,10)}
@@ -1158,7 +1017,51 @@ function clipDOM(year, month, day){const last=new Date(year, month+1, 0).getDate
 function isFuture(iso){const d=new Date(iso);const t=new Date();t.setHours(0,0,0,0);return d>t}
 function inRange(iso,start,end){try{const d=new Date(iso);return d>=start && d<=end}catch{return false}}
 function escapeHtml(s){return String(s).replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]))}
-function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1400)}
+const toastQueue = new Set();
+function showToast(message, type='success'){
+  if (toastQueue.has(message)) return;
+  toastQueue.add(message);
+  const area = byId('toastArea');
+  const el = document.createElement('div');
+  el.className = `toast-item ${type}`;
+  el.textContent = message;
+  area.appendChild(el);
+  requestAnimationFrame(()=>el.classList.add('show'));
+  setTimeout(()=>{
+    el.classList.remove('show');
+    setTimeout(()=>{ el.remove(); toastQueue.delete(message); }, 200);
+  }, 3000);
+}
+function updateLastSaved(){
+  if (!dom.lastSavedLabel) return;
+  const now = new Date();
+  const time = now.toLocaleTimeString(undefined, {hour:'2-digit', minute:'2-digit'});
+  dom.lastSavedLabel.textContent = `Last saved: ${dateFmt.format(now)} ${time}`;
+}
+function confirmAction(message, onConfirm){
+  dom.confirmModalMessage.textContent = message;
+  dom.confirmModalOverlay.style.display='flex';
+  dom.confirmModalOverlay.classList.add('is-open');
+  dom.confirmModalOverlay.setAttribute('aria-hidden','false');
+  const close = ()=>{
+    dom.confirmModalOverlay.style.display='none';
+    dom.confirmModalOverlay.classList.remove('is-open');
+    dom.confirmModalOverlay.setAttribute('aria-hidden','true');
+  };
+  const handleConfirm = ()=>{
+    close();
+    onConfirm();
+  };
+  const cleanup = ()=>{
+    dom.confirmModalConfirm.removeEventListener('click', handleConfirm);
+    dom.confirmModalCancel.removeEventListener('click', close);
+    dom.confirmModalClose.removeEventListener('click', close);
+  };
+  dom.confirmModalConfirm.addEventListener('click', ()=>{ cleanup(); handleConfirm(); }, { once:true });
+  dom.confirmModalCancel.addEventListener('click', ()=>{ cleanup(); close(); }, { once:true });
+  dom.confirmModalClose.addEventListener('click', ()=>{ cleanup(); close(); }, { once:true });
+  dom.confirmModalOverlay.addEventListener('click', (e)=>{ if (e.target === dom.confirmModalOverlay){ cleanup(); close(); } }, { once:true });
+}
 function byId(id){return document.getElementById(id)}
 
 /* ====== State ====== */
@@ -1176,7 +1079,7 @@ function saveState(){localStorage.setItem(LS_KEY, JSON.stringify(state))}
 function loadGoals(){try{const raw=localStorage.getItem(GOALS_KEY); if(!raw) return []; const obj=JSON.parse(raw); return Array.isArray(obj)?obj:[];}catch{return []}}
 function saveGoals(){localStorage.setItem(GOALS_KEY, JSON.stringify(goals))}
 function seed(){
-  const s = { version:'1.4.1', settings:{payFreq:'biweekly', seedPayday: toISO(addDays(new Date(), 14))}, payPeriodOffset:0, incomes:[], expenses:[], templates:[], lastImportBatch:null, sync:{provider:null,gistId:null,token:null,keySalt:null,passHint:null,lastRev:0} };
+  const s = { version:'1.4.5', settings:{payFreq:'biweekly', seedPayday: toISO(addDays(new Date(), 14))}, payPeriodOffset:0, incomes:[], expenses:[], templates:[], lastImportBatch:null, sync:{provider:null,gistId:null,token:null,keySalt:null,passHint:null,lastRev:0} };
   s.incomes.push({id:uid(), date:toISO(addDays(new Date(), -10)), source:'Paycheck', amount:3200, scheduled:false, updatedAt:nowIso()});
   s.incomes.push({id:uid(), date:toISO(addDays(new Date(), -3)), source:'Freelance', amount:450, scheduled:false, updatedAt:nowIso()});
   s.expenses.push({id:uid(), date:toISO(addDays(new Date(), -9)), category:'Housing', amount:1200, notes:'Rent', scheduled:false, updatedAt:nowIso()});
@@ -1393,6 +1296,7 @@ const dom = {
   goalModalOverlay: byId('goalModalOverlay'), goalModalClose: byId('goalModalClose'), goalModalCancel: byId('goalModalCancel'),
   goalModalCreate: byId('goalModalCreate'), goalName: byId('goalName'), goalType: byId('goalType'), goalTarget: byId('goalTarget'),
   goalCurrent: byId('goalCurrent'), goalDate: byId('goalDate'), goalMonthly: byId('goalMonthly'), goalPriorityGroup: byId('goalPriorityGroup'),
+  goalTargetErr: byId('goalTargetErr'), goalCurrentErr: byId('goalCurrentErr'), goalMonthlyErr: byId('goalMonthlyErr'),
   // insights
   insightsTabs: document.querySelectorAll('.insights-tab'),
   insightsWeekly: byId('insights-weekly'), insightsTrends: byId('insights-trends'), insightsWhatif: byId('insights-whatif'),
@@ -1404,9 +1308,11 @@ const dom = {
   whatIfExtra: byId('whatIfExtra'), whatIfExtraLabel: byId('whatIfExtraLabel'),
   whatIfHorizon: byId('whatIfHorizon'), whatIfHorizonLabel: byId('whatIfHorizonLabel'),
   whatIfMonthly: byId('whatIfMonthly'), whatIfTotal: byId('whatIfTotal'), whatIfMonthsLabel: byId('whatIfMonthsLabel'),
+  insightsToolsPanel: byId('insightsToolsPanel'), insightsTemplatesPanel: byId('insightsTemplatesPanel'),
+  insightsPanelButtons: document.querySelectorAll('[data-insights-panel]'),
   // add transaction modal
   txnModalOverlay: byId('txnModalOverlay'), txnModalClose: byId('txnModalClose'), txnModalCancel: byId('txnModalCancel'),
-  txnModalAdd: byId('txnModalAdd'), txnTypeSwitch: byId('txnTypeSwitch'), txnAmount: byId('txnAmount'),
+  txnModalAdd: byId('txnModalAdd'), txnTypeSwitch: byId('txnTypeSwitch'), txnAmount: byId('txnAmount'), txnAmountErr: byId('txnAmountErr'),
   txnDesc: byId('txnDesc'), txnDate: byId('txnDate'), txnCategory: byId('txnCategory'), txnCategoryWrap: byId('txnCategoryWrap'),
   txnRecurring: byId('txnRecurring'),
   // weekly summary
@@ -1431,10 +1337,15 @@ const dom = {
   calPrev: byId('calPrev'), calNext: byId('calNext'), calLabel: byId('calLabel'), calGrid: byId('calGrid'), calMonthTotal: byId('calMonthTotal'), dayDetailTitle: byId('dayDetailTitle'), dayDetailBody: byId('dayDetailBody'),
   // templates
   tplForm: byId('tplForm'), tplLabel: byId('tplLabel'), tplAmount: byId('tplAmount'), tplFreq: byId('tplFreq'), tplWeekday: byId('tplWeekday'), tplSeedDate: byId('tplSeedDate'), tplMonthDay: byId('tplMonthDay'), tplStart: byId('tplStart'), tplNotes: byId('tplNotes'), tplSave: byId('tplSave'), tplCancel: byId('tplCancel'), tplList: byId('tplList'), tplErr: byId('tplErr'),
+  tplAmountErr: byId('tplAmountErr'),
   anchWeekly: byId('anchWeekly'), anchBiweekly: byId('anchBiweekly'), anchMonthly: byId('anchMonthly'),
   // sync
   syncPass: byId('syncPass'), syncToken: byId('syncToken'), syncId: byId('syncId'),
-  btnCreateGist: byId('btnCreateGist'), btnConnect: byId('btnConnect'), btnSyncNow: byId('btnSyncNow'), btnSignOut: byId('btnSignOut')
+  btnCreateGist: byId('btnCreateGist'), btnConnect: byId('btnConnect'), btnSyncNow: byId('btnSyncNow'), btnSignOut: byId('btnSignOut'),
+  lastSavedLabel: byId('lastSavedLabel'),
+  confirmModalOverlay: byId('confirmModalOverlay'), confirmModalClose: byId('confirmModalClose'),
+  confirmModalCancel: byId('confirmModalCancel'), confirmModalConfirm: byId('confirmModalConfirm'),
+  confirmModalMessage: byId('confirmModalMessage')
 };
 
 /* ====== Render ====== */
@@ -1459,7 +1370,11 @@ function renderHome(){
 
   const proj = computeProjectedToPayday();
   dom.projectedToPayday.textContent = formatCurrency(proj.projected);
-  dom.nextPaydayLabel.textContent = toISO(proj.next);
+  dom.nextPaydayLabel.textContent = formatDateDisplay(toISO(proj.next));
+
+  const scheduledInc = state.incomes.filter(x=>x.scheduled && inRange(x.date, now, monthEnd)).reduce((s,x)=>s+Number(x.amount||0),0);
+  const scheduledExp = state.expenses.filter(x=>x.scheduled && inRange(x.date, now, monthEnd)).reduce((s,x)=>s+Number(x.amount||0),0);
+  if (dom.monthProjected) dom.monthProjected.textContent = formatCurrency(net + scheduledInc - scheduledExp);
 
   const scheduledInc = state.incomes.filter(x=>x.scheduled && inRange(x.date, now, monthEnd)).reduce((s,x)=>s+Number(x.amount||0),0);
   const scheduledExp = state.expenses.filter(x=>x.scheduled && inRange(x.date, now, monthEnd)).reduce((s,x)=>s+Number(x.amount||0),0);
@@ -1477,7 +1392,7 @@ function renderHome(){
     <div style="display:flex; justify-content:space-between; gap:8px; padding:6px 0; border-bottom:1px dashed var(--border)">
       <div>
         <div class="txn-title">${escapeHtml(x.type==='income' ? (x.source||'Income') : (x.category||'Expense'))}</div>
-        <div class="txn-meta">${escapeHtml(x.date||'')} · ${x.scheduled ? 'Scheduled' : 'Actual'}</div>
+        <div class="txn-meta">${escapeHtml(formatDateDisplay(x.date||''))} · ${x.scheduled ? 'Scheduled' : 'Actual'}</div>
       </div>
       <div style="display:flex; gap:8px; align-items:center">
         <span class="txn-amount ${x.type==='expense' ? 'negative' : ''}">${formatCurrency(x.amount||0)}</span>
@@ -1505,7 +1420,7 @@ function renderHome(){
       <div class="txn-row">
         <div>
           <div class="txn-title">${escapeHtml(x.label)} ${x.note ? `<span class="txn-meta">${escapeHtml(x.note)}</span>` : ''}</div>
-          <div class="txn-meta">${escapeHtml(x.date||'')}</div>
+          <div class="txn-meta">${escapeHtml(formatDateDisplay(x.date||''))}</div>
         </div>
         <div class="txn-amount ${x.type==='expense' ? 'negative' : ''}">${x.type==='expense' ? '-' : '+'}${formatCurrency(x.amount||0)}</div>
       </div>`).join('') : '<div class="muted">No recent transactions yet.</div>';
@@ -1615,7 +1530,7 @@ function renderGoals(){
         </div>
         <div class="goal-remaining">
           <span>Target date</span>
-          <strong>${goal.targetDate ? escapeHtml(goal.targetDate) : '—'}</strong>
+          <strong>${goal.targetDate ? escapeHtml(formatDateDisplay(goal.targetDate)) : '—'}</strong>
         </div>
         ${helper ? `<div class="goal-helper">${helper}</div>` : ''}
         <button class="btn btn-primary" data-goal-action="log" data-id="${goal.id}" type="button">Log contribution</button>
@@ -1724,7 +1639,7 @@ function renderTransactions(){
   const incRows = state.incomes.filter(x=>inRange(x.date, range.start, range.end) && !(x.scheduled && isFuture(x.date)))
     .sort((a,b)=>String(b.date).localeCompare(String(a.date))).map(row=>`
     <tr>
-      <td>${escapeHtml(row.date||'')}</td>
+      <td>${escapeHtml(formatDateDisplay(row.date||''))}</td>
       <td>${escapeHtml(row.source||'')}</td>
       <td>${row.scheduled ? 'Yes' : 'No'}</td>
       <td class="right mono">${formatCurrency(row.amount||0)}</td>
@@ -1738,7 +1653,7 @@ function renderTransactions(){
   const expRows = state.expenses.filter(x=>inRange(x.date, range.start, range.end) && !(x.scheduled && isFuture(x.date)))
     .sort((a,b)=>String(b.date).localeCompare(String(a.date))).map(row=>`
     <tr>
-      <td>${escapeHtml(row.date||'')}</td>
+      <td>${escapeHtml(formatDateDisplay(row.date||''))}</td>
       <td>${escapeHtml(row.category||'')}</td>
       <td>${row.scheduled ? 'Yes' : 'No'}</td>
       <td class="right mono">${formatCurrency(row.amount||0)}</td>
@@ -1785,7 +1700,7 @@ function renderCalendar(){
 }
 function showDayDetails(iso){
   const items = state.expenses.filter(x=>x.scheduled && x.date===iso).sort((a,b)=>Number(a.amount)-Number(b.amount));
-  byId('dayDetailTitle').textContent = `Bills on ${iso}`;
+  byId('dayDetailTitle').textContent = `Bills on ${formatDateDisplay(iso)}`;
   byId('dayDetailBody').innerHTML = items.length ? items.map(x=>`
     <div style="display:flex; justify-content:space-between; gap:8px; padding:6px 0; border-bottom:1px solid #1a2030">
       <span>${escapeHtml(x.category||'Bill')} <span class="muted">${escapeHtml(x.notes||'')}</span></span>
@@ -1799,12 +1714,68 @@ function showDayDetails(iso){
 
 /* ====== Events ====== */
 function setActiveTab(tab){
-  dom.tabs.forEach(b=>b.classList.toggle('active', b.getAttribute('data-tab')===tab));
+  dom.menuItems.forEach(b=>b.classList.toggle('active', b.getAttribute('data-tab')===tab));
   Object.keys(dom.sections).forEach(k=>{ dom.sections[k].classList.toggle('hide', k!==tab); });
   dom.appbarNav.style.display = (tab==='home') ? '' : 'none';
   if (tab==='home') renderHome();
+  if (tab==='goals') renderGoals();
+  if (tab==='insights') renderInsights();
   if (tab==='transactions') renderTransactions();
   if (tab==='calendar') renderCalendar();
+  dom.menuDropdown.classList.add('hide');
+  dom.menuBtn.setAttribute('aria-expanded','false');
+}
+function setInsightsTab(tab){
+  dom.insightsTabs.forEach(btn=>btn.classList.toggle('active', btn.getAttribute('data-insights-tab')===tab));
+  if (dom.insightsWeekly) dom.insightsWeekly.classList.toggle('hide', tab!=='weekly');
+  if (dom.insightsTrends) dom.insightsTrends.classList.toggle('hide', tab!=='trends');
+  if (dom.insightsWhatif) dom.insightsWhatif.classList.toggle('hide', tab!=='whatif');
+}
+function openGoalModal(goal){
+  dom.goalModalOverlay.style.display='flex';
+  dom.goalModalOverlay.classList.add('is-open');
+  dom.goalModalOverlay.setAttribute('aria-hidden','false');
+  dom.goalName.value = goal ? goal.name : '';
+  dom.goalType.value = goal ? goal.type : 'General Savings';
+  dom.goalTarget.value = goal ? goal.targetAmount : '';
+  dom.goalCurrent.value = goal ? goal.currentAmount : '';
+  dom.goalDate.value = goal ? goal.targetDate : '';
+  dom.goalMonthly.value = goal ? goal.monthlyContribution : '';
+  dom.goalTargetErr.style.display='none';
+  dom.goalCurrentErr.style.display='none';
+  dom.goalMonthlyErr.style.display='none';
+  const priority = goal ? goal.priority : 'medium';
+  dom.goalPriorityGroup.querySelectorAll('button').forEach(btn=>{
+    btn.classList.toggle('active', btn.dataset.priority===priority);
+  });
+  dom.goalModalCreate.textContent = goal ? 'Save Goal' : 'Create Goal';
+  dom.goalModalCreate.dataset.editingId = goal ? goal.id : '';
+}
+function closeGoalModal(){
+  dom.goalModalOverlay.style.display='none';
+  dom.goalModalOverlay.classList.remove('is-open');
+  dom.goalModalOverlay.setAttribute('aria-hidden','true');
+  dom.goalModalCreate.dataset.editingId = '';
+}
+function openTxnModal(){
+  dom.txnModalOverlay.style.display='flex';
+  dom.txnModalOverlay.classList.add('is-open');
+  dom.txnModalOverlay.setAttribute('aria-hidden','false');
+  dom.txnAmount.value='';
+  dom.txnAmountErr.style.display='none';
+  dom.txnDesc.value='';
+  dom.txnDate.value=todayStr();
+  dom.txnCategory.value='';
+  dom.txnRecurring.checked=false;
+  dom.txnTypeSwitch.querySelectorAll('button').forEach((btn, idx)=>{
+    btn.classList.toggle('active', idx===0);
+  });
+  dom.txnCategoryWrap.style.display='';
+}
+function closeTxnModal(){
+  dom.txnModalOverlay.style.display='none';
+  dom.txnModalOverlay.classList.remove('is-open');
+  dom.txnModalOverlay.setAttribute('aria-hidden','true');
 }
 function initTabs(){
   dom.menuBtn.addEventListener('click', ()=>{
@@ -1827,16 +1798,22 @@ function initTabs(){
 }
 function initHome(){
   if (dom.addTransactionBtn){
-    dom.addTransactionBtn.addEventListener('click', ()=>setActiveTab('transactions'));
+    dom.addTransactionBtn.addEventListener('click', openTxnModal);
   }
   if (dom.recentAddBtn){
-    dom.recentAddBtn.addEventListener('click', ()=>setActiveTab('transactions'));
+    dom.recentAddBtn.addEventListener('click', openTxnModal);
   }
   if (dom.setGoalBtn){
-    dom.setGoalBtn.addEventListener('click', ()=>{ setActiveTab('templates'); toast('Set up a recurring goal from templates.'); });
+    dom.setGoalBtn.addEventListener('click', ()=>{
+      setActiveTab('goals');
+      openGoalModal();
+    });
   }
   if (dom.runScenarioBtn){
-    dom.runScenarioBtn.addEventListener('click', ()=>{ setActiveTab('tools'); byId('whatIfNumber')?.focus(); });
+    dom.runScenarioBtn.addEventListener('click', ()=>{
+      setActiveTab('insights');
+      setInsightsTab('whatif');
+    });
   }
   // appbar nav buttons
   dom.appPrev.addEventListener('click', ()=>{ state.payPeriodOffset=(state.payPeriodOffset||0)-1; saveState(); renderHome(); });
@@ -1846,28 +1823,238 @@ function initHome(){
     const btn = e.target.closest('button[data-act]'); if(!btn) return;
     const act = btn.getAttribute('data-act'), id=btn.getAttribute('data-id'), typ=btn.getAttribute('data-type');
     if (act==='del'){
-      if (!confirm('Delete this scheduled item?')) return;
-      if (typ==='income') state.incomes = state.incomes.filter(x=>x.id!==id);
-      else state.expenses = state.expenses.filter(x=>x.id!==id);
-      saveState(); renderHome(); renderTransactions(); renderCalendar(); toast('Scheduled item deleted');
+      confirmAction('Delete this scheduled item?', ()=>{
+        if (typ==='income') state.incomes = state.incomes.filter(x=>x.id!==id);
+        else state.expenses = state.expenses.filter(x=>x.id!==id);
+        saveState(); renderHome(); renderTransactions(); renderCalendar(); updateLastSaved();
+        showToast('Scheduled item deleted', 'success');
+      });
     } else if (act==='paid'){
       if (typ==='income'){
         const it = state.incomes.find(x=>x.id===id); if(!it) return;
         const posted = toISO(new Date());
         state.incomes = state.incomes.filter(x=>x.id!==id);
         state.incomes.push({id:uid(), date:posted, source:it.source||'Income', amount:Number(it.amount||0), scheduled:false, updatedAt:nowIso()});
-        saveState(); renderHome(); renderTransactions(); renderCalendar(); toast('Marked paid');
+        saveState(); renderHome(); renderTransactions(); renderCalendar(); updateLastSaved(); showToast('Marked paid', 'success');
       } else {
         const it = state.expenses.find(x=>x.id===id); if(!it) return;
         const next = prompt('Confirm amount for payment (you can adjust):', (Number(it.amount||0).toFixed(2)));
         if (next===null) return;
-        const parsed = parseAmount(next);
-        if (!Number.isFinite(parsed) || parsed<0){ alert('Invalid amount'); return; }
+        const check = validateAmountInput(next);
+        if (!check.ok){ showToast(check.error, 'error'); return; }
         const posted = toISO(new Date());
         state.expenses = state.expenses.filter(x=>x.id!==id);
-        state.expenses.push({id:uid(), date:posted, category:it.category||'Expense', amount:parsed, notes:it.notes||'', scheduled:false, updatedAt:nowIso()});
-        saveState(); renderHome(); renderTransactions(); renderCalendar(); toast('Marked paid');
+        state.expenses.push({id:uid(), date:posted, category:it.category||'Expense', amount:check.value, notes:it.notes||'', scheduled:false, updatedAt:nowIso()});
+        saveState(); renderHome(); renderTransactions(); renderCalendar(); updateLastSaved(); showToast('Marked paid', 'success');
       }
+    }
+  });
+}
+function initGoals(){
+  dom.newGoalBtn.addEventListener('click', ()=>openGoalModal());
+  dom.goalModalClose.addEventListener('click', closeGoalModal);
+  dom.goalModalCancel.addEventListener('click', closeGoalModal);
+  dom.goalModalOverlay.addEventListener('click', (e)=>{
+    if (e.target === dom.goalModalOverlay) closeGoalModal();
+  });
+  dom.goalPriorityGroup.addEventListener('click', (e)=>{
+    const btn = e.target.closest('button[data-priority]'); if(!btn) return;
+    dom.goalPriorityGroup.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+  dom.goalModalCreate.addEventListener('click', ()=>{
+    dom.goalModalCreate.disabled = true;
+    const name = dom.goalName.value.trim();
+    const targetCheck = validateAmountInput(dom.goalTarget.value);
+    const currentCheck = validateAmountInput(dom.goalCurrent.value);
+    const monthlyCheck = validateAmountInput(dom.goalMonthly.value);
+    dom.goalTargetErr.style.display = 'none';
+    dom.goalCurrentErr.style.display = 'none';
+    dom.goalMonthlyErr.style.display = 'none';
+    if (!name){
+      showToast('Please enter a goal name.', 'error');
+      dom.goalModalCreate.disabled = false;
+      return;
+    }
+    if (!targetCheck.ok){
+      dom.goalTargetErr.textContent = targetCheck.error;
+      dom.goalTargetErr.style.display = 'block';
+      showToast(targetCheck.error, 'error');
+      dom.goalModalCreate.disabled = false;
+      return;
+    }
+    if (!currentCheck.ok){
+      dom.goalCurrentErr.textContent = currentCheck.error;
+      dom.goalCurrentErr.style.display = 'block';
+      showToast(currentCheck.error, 'error');
+      dom.goalModalCreate.disabled = false;
+      return;
+    }
+    if (!monthlyCheck.ok){
+      dom.goalMonthlyErr.textContent = monthlyCheck.error;
+      dom.goalMonthlyErr.style.display = 'block';
+      showToast(monthlyCheck.error, 'error');
+      dom.goalModalCreate.disabled = false;
+      return;
+    }
+    const priority = dom.goalPriorityGroup.querySelector('.active')?.dataset.priority || 'medium';
+    const editingId = dom.goalModalCreate.dataset.editingId;
+    const goalData = {
+      id: editingId || uid(),
+      name,
+      type: dom.goalType.value,
+      targetAmount: targetCheck.value,
+      currentAmount: currentCheck.value,
+      targetDate: dom.goalDate.value,
+      monthlyContribution: monthlyCheck.value,
+      priority,
+      createdAt: editingId ? goals.find(g=>g.id===editingId)?.createdAt || nowIso() : nowIso()
+    };
+    if (editingId){
+      goals = goals.map(g=>g.id===editingId ? goalData : g);
+    } else {
+      goals.push(goalData);
+    }
+    saveGoals();
+    closeGoalModal();
+    renderGoals();
+    renderInsights();
+    updateLastSaved();
+    showToast(editingId ? 'Goal updated' : 'Goal created', 'success');
+    dom.goalModalCreate.disabled = false;
+  });
+  dom.goalsGrid.addEventListener('click', (e)=>{
+    const action = e.target.closest('[data-goal-action]'); if(!action) return;
+    const id = action.getAttribute('data-id');
+    const goal = goals.find(g=>g.id===id);
+    if (!goal) return;
+    const act = action.getAttribute('data-goal-action');
+    if (act==='delete'){
+      confirmAction('Delete this goal?', ()=>{
+        goals = goals.filter(g=>g.id!==id);
+        saveGoals();
+        renderGoals();
+        renderInsights();
+        updateLastSaved();
+        showToast('Goal deleted', 'success');
+      });
+    }
+    if (act==='edit'){
+      openGoalModal(goal);
+    }
+    if (act==='log'){
+      const input = prompt('Log contribution amount:', '0');
+      if (input===null) return;
+      const check = validateAmountInput(input);
+      if (!check.ok){
+        showToast(check.error, 'error');
+        return;
+      }
+      goal.currentAmount = Number(goal.currentAmount||0) + check.value;
+      saveGoals();
+      renderGoals();
+      renderInsights();
+      updateLastSaved();
+      showToast('Contribution logged', 'success');
+    }
+  });
+}
+function initInsights(){
+  dom.insightsTabs.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const tab = btn.getAttribute('data-insights-tab');
+      setInsightsTab(tab);
+    });
+  });
+  dom.insightsPanelButtons.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const panel = btn.getAttribute('data-insights-panel');
+      dom.insightsPanelButtons.forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      if (panel==='tools'){
+        dom.insightsToolsPanel.classList.remove('hide');
+        dom.insightsTemplatesPanel.classList.add('hide');
+      } else {
+        dom.insightsTemplatesPanel.classList.remove('hide');
+        dom.insightsToolsPanel.classList.add('hide');
+      }
+    });
+  });
+  dom.whatIfExtra.addEventListener('input', updateWhatIf);
+  dom.whatIfHorizon.addEventListener('input', updateWhatIf);
+  setInsightsTab('weekly');
+}
+function initTxnModal(){
+  dom.txnModalClose.addEventListener('click', closeTxnModal);
+  dom.txnModalCancel.addEventListener('click', closeTxnModal);
+  dom.txnModalOverlay.addEventListener('click', (e)=>{
+    if (e.target === dom.txnModalOverlay) closeTxnModal();
+  });
+  dom.txnTypeSwitch.addEventListener('click', (e)=>{
+    const btn = e.target.closest('button[data-txn-type]'); if(!btn) return;
+    dom.txnTypeSwitch.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const type = btn.dataset.txnType;
+    dom.txnCategoryWrap.style.display = type==='expense' ? '' : 'none';
+  });
+  dom.txnModalAdd.addEventListener('click', ()=>{
+    dom.txnModalAdd.disabled = true;
+    const activeBtn = dom.txnTypeSwitch.querySelector('button.active');
+    const type = activeBtn?.dataset.txnType || 'expense';
+    const validation = validateAmountInput(dom.txnAmount.value);
+    if (!validation.ok){
+      dom.txnAmountErr.textContent = validation.error;
+      dom.txnAmountErr.style.display='block';
+      showToast(validation.error, 'error');
+      dom.txnModalAdd.disabled = false;
+      return;
+    }
+    dom.txnAmountErr.style.display='none';
+    const amt = validation.value;
+    const desc = dom.txnDesc.value.trim();
+    const date = dom.txnDate.value || todayStr();
+    const scheduled = dom.txnRecurring.checked;
+    if (type==='income'){
+      state.incomes.push({
+        id: uid(),
+        date,
+        source: desc || 'Income',
+        amount: amt,
+        scheduled,
+        updatedAt: nowIso()
+      });
+      saveState();
+      renderHome(); renderTransactions();
+      showToast('Transaction added', 'success');
+    } else {
+      const category = dom.txnCategory.value || 'Other';
+      state.expenses.push({
+        id: uid(),
+        date,
+        category,
+        amount: amt,
+        notes: desc,
+        scheduled,
+        templateId: null,
+        updatedAt: nowIso()
+      });
+      saveState();
+      renderHome(); renderTransactions();
+      showToast('Transaction added', 'success');
+    }
+    updateLastSaved();
+    dom.txnModalAdd.disabled = false;
+    closeTxnModal();
+  });
+  document.addEventListener('keydown', (e)=>{
+    if (e.key === 'Escape'){
+      if (dom.confirmModalOverlay.style.display==='flex') {
+        dom.confirmModalOverlay.style.display='none';
+        dom.confirmModalOverlay.classList.remove('is-open');
+        dom.confirmModalOverlay.setAttribute('aria-hidden','true');
+      }
+      if (dom.goalModalOverlay.style.display==='flex') closeGoalModal();
+      if (dom.txnModalOverlay.style.display==='flex') closeTxnModal();
     }
   });
 }
@@ -2024,20 +2211,29 @@ function initTransactions(){
   // Income form
   dom.incomeForm.addEventListener('submit', (e)=>{
     e.preventDefault();
+    dom.incomeSubmitBtn.disabled = true;
     const date=dom.incomeDate.value||todayStr();
     const source=dom.incomeSource.value.trim();
-    const amt=parseAmount(dom.incomeAmount.value);
+    const amountCheck = validateAmountInput(dom.incomeAmount.value);
     const scheduled= !!dom.incomeScheduled.checked;
-    if(!Number.isFinite(amt)||amt<0){ dom.incomeAmountErr.style.display='block'; return; } else dom.incomeAmountErr.style.display='none';
+    if(!amountCheck.ok){
+      dom.incomeAmountErr.textContent = amountCheck.error;
+      dom.incomeAmountErr.style.display='block';
+      showToast(amountCheck.error, 'error');
+      dom.incomeSubmitBtn.disabled = false;
+      return;
+    } else dom.incomeAmountErr.style.display='none';
+    const amt = amountCheck.value;
     if (editingIncomeId){
       const idx = state.incomes.findIndex(x=>x.id===editingIncomeId);
       if (idx>=0){ state.incomes[idx]={...state.incomes[idx], date, source, amount:amt, scheduled, updatedAt:nowIso()}; }
       else { state.incomes.push({id:editingIncomeId, date, source, amount:amt, scheduled, updatedAt:nowIso()}); }
-      saveState(); clearIncomeForm(); renderTransactions(); renderHome(); toast('Income updated');
+      saveState(); clearIncomeForm(); renderTransactions(); renderHome(); updateLastSaved(); showToast('Transaction updated', 'success');
     } else {
       state.incomes.push({id:uid(), date, source, amount:amt, scheduled, updatedAt:nowIso()});
-      saveState(); clearIncomeForm(); renderTransactions(); renderHome(); toast('Income added');
+      saveState(); clearIncomeForm(); renderTransactions(); renderHome(); updateLastSaved(); showToast('Transaction added', 'success');
     }
+    dom.incomeSubmitBtn.disabled = false;
   });
   dom.incomeCancelEdit.addEventListener('click', ()=>{ clearIncomeForm(); });
   dom.incomeTbody.addEventListener('click', (e)=>{
@@ -2052,25 +2248,33 @@ function initTransactions(){
       editingIncomeId=id;
       dom.incomeSubmitBtn.textContent='Save Income';
     }else if(action==='del-income'){
-      if(confirm('Delete this income item?')){
+      confirmAction('Delete this transaction?', ()=>{
         state.incomes=state.incomes.filter(x=>x.id!==id);
         if (editingIncomeId===id){ clearIncomeForm(); }
-        saveState(); renderTransactions(); renderHome(); toast('Income deleted');
-      }
+        saveState(); renderTransactions(); renderHome(); updateLastSaved(); showToast('Transaction deleted', 'success');
+      });
     }
   });
 
   // Expense form
   dom.expenseForm.addEventListener('submit', (e)=>{
     e.preventDefault();
+    dom.expenseSubmitBtn.disabled = true;
     const date=dom.expenseDate.value||todayStr();
     const selected=dom.expenseCategory.value;
     const custom=dom.expenseCategoryCustom.value.trim();
     const category=custom||selected;
-    const amt=parseAmount(dom.expenseAmount.value);
+    const amountCheck = validateAmountInput(dom.expenseAmount.value);
     const notes=dom.expenseNotes.value.trim();
     const scheduled= !!dom.expenseScheduled.checked;
-    if(!Number.isFinite(amt)||amt<0){ dom.expenseAmountErr.style.display='block'; return; } else dom.expenseAmountErr.style.display='none';
+    if(!amountCheck.ok){
+      dom.expenseAmountErr.textContent = amountCheck.error;
+      dom.expenseAmountErr.style.display='block';
+      showToast(amountCheck.error, 'error');
+      dom.expenseSubmitBtn.disabled = false;
+      return;
+    } else dom.expenseAmountErr.style.display='none';
+    const amt = amountCheck.value;
     if (editingExpenseId){
       const idx = state.expenses.findIndex(x=>x.id===editingExpenseId);
       if (idx>=0){
@@ -2078,11 +2282,12 @@ function initTransactions(){
       } else {
         state.expenses.push({id:editingExpenseId, date, category, amount:amt, notes, scheduled, templateId:null, updatedAt:nowIso()});
       }
-      saveState(); clearExpenseForm(); renderTransactions(); renderHome(); toast('Expense updated');
+      saveState(); clearExpenseForm(); renderTransactions(); renderHome(); updateLastSaved(); showToast('Transaction updated', 'success');
     } else {
       state.expenses.push({id:uid(), date, category, amount:amt, notes, scheduled, templateId:null, updatedAt:nowIso()});
-      saveState(); clearExpenseForm(); renderTransactions(); renderHome(); toast('Expense added');
+      saveState(); clearExpenseForm(); renderTransactions(); renderHome(); updateLastSaved(); showToast('Transaction added', 'success');
     }
+    dom.expenseSubmitBtn.disabled = false;
   });
   dom.expenseCancelEdit.addEventListener('click', ()=>{ clearExpenseForm(); });
   dom.expenseTbody.addEventListener('click', (e)=>{
@@ -2100,11 +2305,11 @@ function initTransactions(){
       editingExpenseId=id;
       dom.expenseSubmitBtn.textContent='Save Expense';
     }else if(action==='del-expense'){
-      if(confirm('Delete this expense item?')){
+      confirmAction('Delete this transaction?', ()=>{
         state.expenses=state.expenses.filter(x=>x.id!==id);
         if (editingExpenseId===id){ clearExpenseForm(); }
-        saveState(); renderTransactions(); renderHome(); toast('Expense deleted');
-      }
+        saveState(); renderTransactions(); renderHome(); updateLastSaved(); showToast('Transaction deleted', 'success');
+      });
     }
   });
 }
@@ -2137,26 +2342,43 @@ function initTemplates(){
   dom.tplCancel.addEventListener('click', clearTplForm);
   dom.tplForm.addEventListener('submit', (e)=>{
     e.preventDefault();
+    dom.tplSave.disabled = true;
     const label=dom.tplLabel.value.trim();
-    const amount=parseAmount(dom.tplAmount.value);
+    const amountCheck=validateAmountInput(dom.tplAmount.value);
     const freq=dom.tplFreq.value;
     const weekday=Number(dom.tplWeekday.value);
     const seedDate=dom.tplSeedDate.value||null;
     const day=Number(dom.tplMonthDay.value||1);
     const startDate=dom.tplStart.value||todayStr();
     const notes=dom.tplNotes.value.trim();
-    if (!label || !Number.isFinite(amount) || amount<0){ dom.tplErr.style.display='block'; setTimeout(()=>dom.tplErr.style.display='none',1500); return; }
+    if (!label || !amountCheck.ok){
+      dom.tplErr.style.display='block';
+      if (!label){
+        showToast('Please enter a template label.', 'error');
+      }
+      if (!amountCheck.ok){
+        dom.tplAmountErr.textContent = amountCheck.error;
+        dom.tplAmountErr.style.display = 'block';
+        showToast(amountCheck.error, 'error');
+      }
+      setTimeout(()=>dom.tplErr.style.display='none',1500);
+      dom.tplSave.disabled = false;
+      return;
+    }
+    dom.tplAmountErr.style.display = 'none';
+    const amount = amountCheck.value;
     if (editingTplId){
       const i=state.templates.findIndex(t=>t.id===editingTplId);
       if (i>=0){ const old=state.templates[i];
         state.templates[i]={...old, label, amount, freq, weekday, seedDate, day, startDate, notes, active:(old.active!==false), updatedAt:nowIso()};
       }
-      toast('Template updated');
+      showToast('Template updated', 'success');
     } else {
       state.templates.push({id:uid(), label, amount, freq, weekday, seedDate, day, startDate, notes, active:true, updatedAt:nowIso()});
-      toast('Template added');
+      showToast('Template added', 'success');
     }
-    saveState(); clearTplForm(); renderTemplates(); renderHome(); renderCalendar();
+    saveState(); clearTplForm(); renderTemplates(); renderHome(); renderCalendar(); updateLastSaved();
+    dom.tplSave.disabled = false;
   });
   dom.tplList.addEventListener('click', (e)=>{
     const btn=e.target.closest('button, input[type="checkbox"]'); if(!btn) return;
@@ -2170,13 +2392,14 @@ function initTemplates(){
       dom.tplStart.value=t.startDate||todayStr(); dom.tplNotes.value=t.notes||'';
       showTplAnchors();
     } else if (act==='del'){
-      if (!confirm('Delete this template?')) return;
-      state.templates.splice(i,1);
-      state.expenses = state.expenses.filter(x=>x.templateId!==id || !x.scheduled);
-      saveState(); renderTemplates(); renderCalendar(); renderHome(); toast('Template deleted');
+      confirmAction('Delete this template?', ()=>{
+        state.templates.splice(i,1);
+        state.expenses = state.expenses.filter(x=>x.templateId!==id || !x.scheduled);
+        saveState(); renderTemplates(); renderCalendar(); renderHome(); updateLastSaved(); showToast('Template deleted', 'success');
+      });
     } else if (act==='toggle'){
       state.templates[i].active = btn.checked;
-      saveState(); renderTemplates(); renderCalendar(); renderHome(); toast(btn.checked?'Template enabled':'Template disabled');
+      saveState(); renderTemplates(); renderCalendar(); renderHome(); updateLastSaved(); showToast(btn.checked?'Template enabled':'Template disabled', 'success');
     }
   });
 }
@@ -2187,14 +2410,14 @@ function initTools(){
     const blob=new Blob([JSON.stringify(state,null,2)], {type:'application/json'});
     const url=URL.createObjectURL(blob); const a=document.createElement('a');
     a.href=url; a.download=`budget-export-v131-${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.json`;
-    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); toast('Exported JSON');
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); showToast('Exported JSON', 'success');
   });
   dom.importFile.addEventListener('change', async (e)=>{
     const file=e.target.files[0]; if(!file) return;
     try{ const text=await file.text(); const obj=JSON.parse(text);
       if(!obj || !Array.isArray(obj.incomes) || !Array.isArray(obj.expenses)) throw new Error('Invalid format');
       state={
-        version: obj.version||'1.4.1',
+        version: obj.version||'1.4.5',
         settings: obj.settings||state.settings,
         payPeriodOffset: obj.payPeriodOffset||0,
         incomes: obj.incomes.map(x=>({...x, scheduled: !!x.scheduled, updatedAt:x.updatedAt||nowIso()})),
@@ -2203,7 +2426,7 @@ function initTools(){
         lastImportBatch: null,
         sync: obj.sync || state.sync
       };
-      saveState(); renderHome(); renderTransactions(); renderCalendar(); renderTemplates(); toast('Imported data');
+      saveState(); renderHome(); renderTransactions(); renderCalendar(); renderTemplates(); updateLastSaved(); showToast('Imported data', 'success');
     }catch(err){ alert('Import failed: '+(err.message||err)); } finally { e.target.value=''; }
   });
 
@@ -2223,10 +2446,11 @@ function initTools(){
   dom.resetBtn.addEventListener('click', ()=>{
     if (!confirm('Erase ALL incomes/expenses (keep settings & templates)?')) return;
     const settings = state.settings, templates=state.templates, sync=state.sync;
-    state = { version:'1.4.1', settings, payPeriodOffset:0, incomes:[], expenses:[], templates, lastImportBatch:null, sync };
+    state = { version:'1.4.5', settings, payPeriodOffset:0, incomes:[], expenses:[], templates, lastImportBatch:null, sync };
     saveState();
     renderHome(); renderTransactions(); renderCalendar(); renderTemplates();
-    toast('All transactions cleared');
+    updateLastSaved();
+    showToast('All transactions cleared', 'success');
   });
 
   // CSV
@@ -2237,7 +2461,7 @@ function initTools(){
   dom.undoImportBtn.addEventListener('click', undoLastImport);
 }
 
-/* ====== CSV support (v1.4.1 DC fix) ====== */
+/* ====== CSV support (v1.4.5 DC fix) ====== */
 let _csvData = { headers:[], rows:[] };
 function handleCsvFile(e){
   const file=e.target.files[0]; if(!file) return;
@@ -2362,7 +2586,8 @@ function importCsvMapped(){
   state.lastImportBatch = { ids: idsImported, ts: Date.now() };
   saveState(); renderHome(); renderTransactions(); renderCalendar(); closeCsvModal();
   dom.undoImportBtn.disabled = idsImported.length===0;
-  toast(`Imported ${count} rows`);
+  updateLastSaved();
+  showToast(`Imported ${count} rows`, 'success');
 }
 function undoLastImport(){
   const batch = state.lastImportBatch;
@@ -2373,10 +2598,10 @@ function undoLastImport(){
   state.expenses = state.expenses.filter(x=>!set.has(x.id));
   const removed=(b1-state.incomes.length)+(b2-state.expenses.length);
   state.lastImportBatch=null;
-  saveState(); renderHome(); renderTransactions(); renderCalendar(); toast(`Undid ${removed} imported rows`);
+  saveState(); renderHome(); renderTransactions(); renderCalendar(); updateLastSaved(); showToast(`Undid ${removed} imported rows`, 'success');
 }
 
-/* ====== Sync (updated for 1.3.1) ====== */
+/* ====== Sync (updated for 1.4.5) ====== */
 async function deriveKey(pass, salt){
   const enc=new TextEncoder();
   const keyMaterial=await crypto.subtle.importKey('raw', enc.encode(pass), {name:'PBKDF2'}, false, ['deriveKey']);
@@ -2435,7 +2660,7 @@ function initSync(){
       const token = dom.syncToken.value.trim();
       if (!token){ alert('Enter your GitHub token with gist scope.'); return;}
       const id = await createGist(token);
-      dom.syncId.value = id; toast('Created sync');
+      dom.syncId.value = id; showToast('Created sync', 'success');
     }catch(e){ alert('Create failed: '+e.message); }
   });
   byId('btnConnect').addEventListener('click', ()=>{
@@ -2443,11 +2668,11 @@ function initSync(){
     if (!id || !token || !pass){ alert('Enter Sync ID, Token, and Passphrase.'); return; }
     if (!state.sync.keySalt) state.sync.keySalt = Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b=>b.toString(16).padStart(2,'0')).join('');
     state.sync.gistId = id; state.sync.token = token; state.sync.passHint = `len:${pass.length}`; saveState();
-    dom.btnSyncNow.disabled=false; toast('Connected to sync');
+    dom.btnSyncNow.disabled=false; showToast('Connected to sync', 'success');
   });
   byId('btnSignOut').addEventListener('click', ()=>{
     state.sync = { provider:null, gistId:null, token:null, keySalt:null, passHint:null, lastRev:0 };
-    saveState(); dom.syncId.value=''; dom.syncToken.value=''; dom.syncPass.value=''; dom.btnSyncNow.disabled=true; toast('Signed out of sync');
+    saveState(); dom.syncId.value=''; dom.syncToken.value=''; dom.syncPass.value=''; dom.btnSyncNow.disabled=true; showToast('Signed out of sync', 'success');
   });
   byId('btnSyncNow').addEventListener('click', async ()=>{
     const id=state.sync.gistId, token=state.sync.token, pass=dom.syncPass.value.trim();
@@ -2472,12 +2697,13 @@ function initSync(){
         const tR=new Date((remote.syncUpdatedAt||remote.versionDate||0)).getTime();
         if (tR>tL) merged.settings = remote.settings||merged.settings;
       }
-      merged.version='1.4.1'; merged.syncUpdatedAt=nowIso();
+      merged.version='1.4.5'; merged.syncUpdatedAt=nowIso();
       const payload = await encryptJSON(merged, pass, state.sync.keySalt||null);
       await pushSync(id, token, payload);
       state = merged; saveState();
       renderHome(); renderTransactions(); renderCalendar(); renderTemplates();
-      toast('Synced');
+      updateLastSaved();
+      showToast('Synced', 'success');
     }catch(e){ alert('Sync failed: '+e.message); }
   });
 }
