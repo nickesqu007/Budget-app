@@ -3,12 +3,15 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>My Budget v1.4.6</title>
+<title>My Budget v1.4.7</title>
 <link rel="manifest" href="./manifest.webmanifest">
 <meta name="theme-color" content="#f7f8fb" />
 <link rel="icon" href="./icon-192.png" sizes="192x192">
 <link rel="apple-touch-icon" href="./icon-192.png">
 <!--
+v1.4.7 changes:
+- Dashboard de-duplication, unified data store, calendar + goals fixes, and Home rollups corrected.
+
 v1.4.6 changes:
 - Fix confirm modal cleanup when dismissed via Escape to prevent stale actions firing.
 
@@ -51,6 +54,7 @@ Notes:
   .menu-dropdown button{width:100%; text-align:left; padding:8px 10px; border-radius:10px; border:1px solid transparent; background:#fff; cursor:pointer}
   .menu-dropdown button.active{background:#111827; color:#fff}
   .header-right{display:flex; gap:8px; align-items:center}
+  .appbar-inline{display:flex; gap:8px; align-items:center; margin:10px 0 4px}
   .nav-btn{background:#fff;border:1px solid var(--border);border-radius:999px;padding:6px 10px;cursor:pointer}
   .pill{padding:8px 12px; border:1px solid var(--border); border-radius:var(--radius-pill); background:#fff; box-shadow:var(--shadow-soft); display:inline-flex; gap:8px; align-items:center}
   .pill strong{font-variant-numeric: tabular-nums}
@@ -221,10 +225,9 @@ Notes:
         <button type="button" role="menuitem" data-tab="goals">Goals</button>
       </div>
     </div>
-    <div class="header-right" id="appbarNav" style="display:none">
-      <button class="nav-btn" id="appPrev" title="Previous pay period">◀</button>
-      <div class="badge" id="appPeriodLabel">—</div>
-      <button class="nav-btn" id="appNext" title="Next pay period">▶</button>
+    <div class="header-right">
+      <div class="muted" id="lastSavedLabel" style="font-size:.8rem">Last saved: —</div>
+      <div class="muted" id="buildStamp" style="font-size:.75rem">Build —</div>
     </div>
     <div class="muted" id="lastSavedLabel" style="font-size:.8rem">Last saved: —</div>
   </header>
@@ -242,64 +245,97 @@ Notes:
         <button class="btn btn-ghost" id="runScenarioBtn" type="button">Run scenario</button>
       </div>
     </div>
+    <div class="appbar-inline" id="appbarNav" style="display:none">
+      <button class="nav-btn" id="appPrev" title="Previous pay period">◀</button>
+      <div class="badge" id="appPeriodLabel">—</div>
+      <button class="nav-btn" id="appNext" title="Next pay period">▶</button>
+    </div>
 
-    <div class="kpi-grid">
-      <div class="kpi-card safe" id="safePill">
-        <div class="kpi-icon">💳</div>
-        <div>
-          <div class="kpi-label">Safe to spend</div>
-          <div class="kpi-value" id="safeToSpend">$0.00</div>
-          <div class="kpi-sub">Next payday <span id="nextPaydayLabel">—</span></div>
-        </div>
+    <div class="kpi-grid" id="kpiGrid"></div>
+
+    <div class="home-grid">
+      <div>
+        <section class="card">
+          <div class="card-header">
+            <h2>Cash Flow Trend</h2>
+            <span class="muted">Last 6 weeks</span>
+          </div>
+          <div class="card-body">
+            <div class="chart-area" id="cashflowChart" aria-label="Cash flow trend chart"></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <h2>Spending by Category</h2>
+            <span class="muted">This month</span>
+          </div>
+          <div class="card-body">
+            <div id="categoryChart"></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <h2>Recent Transactions</h2>
+            <button class="btn btn-ghost btn-sm" id="recentAddBtn" type="button">Add transaction</button>
+          </div>
+          <div class="card-body">
+            <div class="transactions-list" id="recentTransactions"></div>
+          </div>
+        </section>
       </div>
-      <div class="kpi-card">
-        <div class="kpi-icon">📆</div>
-        <div>
-          <div class="kpi-label">This month</div>
-          <div class="kpi-value" id="sumNet">$0.00</div>
-          <div class="kpi-sub">Income <strong id="sumIncome">$0.00</strong> · Out <strong id="sumExpenses">$0.00</strong></div>
-        </div>
+
+      <div>
+        <section class="card">
+          <div class="card-header">
+            <h2>This week’s insight</h2>
+          </div>
+          <div class="card-body">
+            <p class="muted" id="insightSummary">Add transactions to unlock weekly insights.</p>
+            <div class="insight-box">
+              <div class="insight-label">What matters</div>
+              <div id="insightWhatMatters">—</div>
+            </div>
+            <div class="insight-box">
+              <div class="insight-label">Suggested action</div>
+              <div id="insightAction">—</div>
+            </div>
+            <div class="mini-help" id="wkTrend">vs 4-wk avg: —</div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <h2>Month at a Glance</h2>
+          </div>
+          <div class="card-body">
+            <div class="glance-row"><span>Income</span><strong id="monthIncome">$0.00</strong></div>
+            <div class="glance-row"><span>Spending</span><strong id="monthSpending">$0.00</strong></div>
+            <div class="glance-row"><span>Projected end</span><strong id="monthProjected">$0.00</strong></div>
+            <div class="glance-row"><span>Projected to payday</span><strong id="projectedToPayday">$0.00</strong></div>
+            <div class="muted" style="margin-top:10px">Next 7 days</div>
+            <div class="glance-metrics">
+              <div>Income<br><strong id="upIncome">$0.00</strong></div>
+              <div>Bills<br><strong id="upBills">$0.00</strong></div>
+              <div>Net<br><strong id="upNet">$0.00</strong></div>
+            </div>
+            <div class="upcoming-list" id="upcomingList" aria-live="polite"></div>
+          </div>
+        </section>
       </div>
-      <div class="kpi-card">
-        <div class="kpi-icon">🔥</div>
-        <div>
-          <div class="kpi-label">Daily burn</div>
-          <div class="kpi-value" id="dailyBurn">$0.00</div>
-          <div class="kpi-sub">Average spend per day</div>
-        </div>
+    </div>
+
+  </section>
+
+  <!-- GOALS -->
+  <section id="tab-goals" class="hide">
+    <div class="page-header">
+      <div>
+        <h1>Your Goals</h1>
+        <p>Track progress toward what matters most</p>
       </div>
-      <div class="kpi-card">
-        <div class="kpi-icon">💹</div>
-        <div>
-          <div class="kpi-label">Savings rate</div>
-          <div class="kpi-value" id="savingsRate">0%</div>
-          <div class="kpi-sub">Net vs income</div>
-        </div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-icon">📉</div>
-        <div>
-          <div class="kpi-label">Debt pressure</div>
-          <div class="kpi-value" id="debtPressure">0%</div>
-          <div class="kpi-sub">Spending vs income</div>
-        </div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-icon">💹</div>
-        <div>
-          <div class="kpi-label">Savings rate</div>
-          <div class="kpi-value" id="savingsRate">0%</div>
-          <div class="kpi-sub">Net vs income</div>
-        </div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-icon">📉</div>
-        <div>
-          <div class="kpi-label">Debt pressure</div>
-          <div class="kpi-value" id="debtPressure">0%</div>
-          <div class="kpi-sub">Spending vs income</div>
-        </div>
-      </div>
+      <button class="btn btn-primary" id="newGoalBtn" type="button">+ New Goal</button>
     </div>
 
     <div class="home-grid">
@@ -616,347 +652,6 @@ Notes:
       </div>
     </div>
 
-    <section class="card" style="margin-top:20px">
-      <div class="card-header">
-        <h2>Tools &amp; Templates</h2>
-      </div>
-      <div class="card-body">
-        <div class="actions" style="margin-bottom:12px">
-          <button class="btn btn-ghost active" type="button" data-insights-panel="tools">Tools</button>
-          <button class="btn btn-ghost" type="button" data-insights-panel="templates">Templates</button>
-        </div>
-        <div id="insightsToolsPanel">
-          <div id="tab-tools">
-            <div class="card">
-              <h2>Import / Export</h2>
-              <div class="section-body">
-                <div class="actions">
-                  <button id="exportBtn" class="btn btn-ghost">Export JSON</button>
-                  <label for="importFile" class="btn btn-ghost" style="display:inline-flex; align-items:center; gap:8px; cursor:pointer">
-                    Import JSON <input id="importFile" type="file" accept="application/json" style="display:none" />
-                  </label>
-                  <label for="csvFile" class="btn btn-ghost" style="display:inline-flex; align-items:center; gap:8px; cursor:pointer">
-                    Import CSV <input id="csvFile" type="file" accept=".csv,text/csv" style="display:none" />
-                  </label>
-                  <button id="undoImportBtn" class="btn btn-ghost" title="Undo last import" disabled>Undo Last Import</button>
-                  <button id="resetBtn" class="btn btn-danger">⚠ Reset Data</button>
-                </div>
-              </div>
-            </div>
-
-            <div class="card">
-              <h2>Calculators</h2>
-              <div class="section-body">
-                <div class="row">
-                  <div>
-                    <label for="whatIfNumber">What-If amount</label>
-                    <input id="whatIfNumber" type="number" min="0" step="1" inputmode="decimal" />
-                    <div class="mini-help">Projected Balance (Net − What-If): <strong id="projectedBalance">$0.00</strong></div>
-                  </div>
-                  <div>
-                    <label for="calcAmount">Quick Calculator: Planned purchase</label>
-                    <input id="calcAmount" type="number" min="0" step="1" inputmode="decimal" placeholder="e.g., 250" />
-                    <div class="mini-help">New Balance (Net − Planned): <strong id="calcResult">$0.00</strong></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="card">
-              <h2>Sync (E2EE via GitHub Gist)</h2>
-              <div class="section-body">
-                <div class="mini-help">Bring your own token (gist scope). We store only encrypted data.</div>
-                <div class="row">
-                  <div>
-                    <label for="syncPass">Passphrase (don’t lose this)</label>
-                    <input id="syncPass" type="password" placeholder="Your passphrase" />
-                  </div>
-                  <div>
-                    <label for="syncToken">GitHub Token (gist scope)</label>
-                    <input id="syncToken" type="password" placeholder="ghp_..." />
-                  </div>
-                </div>
-                <div class="row">
-                  <div>
-                    <label for="syncId">Sync ID (Gist ID)</label>
-                    <input id="syncId" type="text" placeholder="e.g., a1b2c3d4..." />
-                  </div>
-                  <div class="actions" style="align-items:end">
-                    <button id="btnCreateGist" class="btn btn-primary" type="button" style="width:auto">Create New Sync</button>
-                    <button id="btnConnect" class="btn btn-ghost" type="button" style="width:auto">Connect</button>
-                    <button id="btnSyncNow" class="btn btn-ghost" type="button" style="width:auto" disabled>Sync Now</button>
-                    <button id="btnSignOut" class="btn btn-danger" type="button" style="width:auto">Sign out of Sync</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div id="insightsTemplatesPanel" class="hide">
-          <div id="tab-templates">
-            <div class="card">
-              <h2>Recurring Expense Templates</h2>
-              <div class="section-body">
-                <form id="tplForm">
-                  <fieldset>
-                    <legend>Create / Edit Template</legend>
-                    <div class="row-3">
-                      <div><label for="tplLabel">Label (e.g., Rent)</label><input id="tplLabel" type="text" required /></div>
-      <div>
-        <label for="tplAmount">Amount</label>
-        <input id="tplAmount" type="number" min="0" step="0.01" inputmode="decimal" required />
-        <div id="tplAmountErr" class="error"></div>
-      </div>
-                      <div><label for="tplFreq">Frequency</label>
-                        <select id="tplFreq">
-                          <option value="weekly">Weekly</option>
-                          <option value="biweekly">Biweekly</option>
-                          <option value="semimonthly">Semi-monthly (1st & 15th)</option>
-                          <option value="monthly">Monthly</option>
-                        </select>
-                      </div>
-                    </div>
-                    <div id="tplAnchors" class="row-3" style="margin-top:8px">
-                      <div id="anchWeekly" class="hide"><label for="tplWeekday">Weekday</label>
-                        <select id="tplWeekday"><option value="0">Sunday</option><option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option></select>
-                      </div>
-                      <div id="anchBiweekly" class="hide"><label for="tplSeedDate">Seed date</label><input id="tplSeedDate" type="date" /></div>
-                      <div id="anchMonthly" class="hide"><label for="tplMonthDay">Day of month</label><input id="tplMonthDay" type="number" min="1" max="31" /></div>
-                    </div>
-                    <div class="row">
-                      <div><label for="tplStart">Start date</label><input id="tplStart" type="date" /></div>
-                      <div><label for="tplNotes">Notes (optional)</label><input id="tplNotes" type="text" /></div>
-                    </div>
-                    <div class="actions"><button class="btn btn-primary" id="tplSave" type="submit">Save Template</button><button class="btn btn-ghost" id="tplCancel" type="button">Cancel</button></div>
-                    <div id="tplErr" class="error" style="display:none">Please fill the highlighted fields.</div>
-                  </fieldset>
-                </form>
-                <div class="card" style="margin:12px 0 0">
-                  <h2>Templates List</h2>
-                  <div class="section-body" id="tplList" class="muted">No templates yet.</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-    </div>
-
-    <div id="insights-trends" class="hide">
-      <div class="insights-grid">
-        <section class="card">
-          <div class="card-header">
-            <h2>Monthly Spending</h2>
-          </div>
-          <div class="card-body">
-            <div class="chart-area" id="monthlySpendingChart" aria-label="Monthly spending chart"></div>
-            <div class="mini-help" id="monthlyTrendNote">Same as last month</div>
-          </div>
-        </section>
-        <section class="card">
-          <div class="card-header">
-            <h2>Where Your Money Goes</h2>
-          </div>
-          <div class="card-body">
-            <div class="home-grid" style="grid-template-columns:140px 1fr; align-items:center">
-              <div class="chart-area" style="height:140px" id="insightsCategoryChart" aria-label="Category breakdown"></div>
-              <div id="insightsCategoryList"></div>
-            </div>
-          </div>
-        </section>
-      </div>
-    </div>
-
-    <div id="insights-whatif" class="hide">
-      <section class="card">
-        <div class="card-body">
-          <div class="goal-meta">
-            <div class="icon-pill" style="background:#e0f2fe">🧮</div>
-            <div>
-              <div style="font-weight:600">What If Scenario</div>
-              <div class="muted">See the impact of saving more each month</div>
-            </div>
-          </div>
-          <div style="margin-top:16px">
-            <div class="slider-label"><span>Save extra per month</span><strong id="whatIfExtraLabel">$0</strong></div>
-            <input type="range" id="whatIfExtra" min="0" max="1000" step="50" value="0">
-            <div class="row" style="margin-top:4px">
-              <span class="muted">$0</span>
-              <span class="right muted">$1,000</span>
-            </div>
-          </div>
-          <div style="margin-top:16px">
-            <div class="slider-label"><span>Time horizon</span><strong id="whatIfHorizonLabel">12 months</strong></div>
-            <input type="range" id="whatIfHorizon" min="3" max="36" step="3" value="12">
-            <div class="row" style="margin-top:4px">
-              <span class="muted">3 months</span>
-              <span class="right muted">3 years</span>
-            </div>
-          </div>
-          <div class="whatif-output">
-            <div class="output-box">
-              <span>New monthly savings</span>
-              <strong id="whatIfMonthly">$0</strong>
-            </div>
-            <div class="output-box">
-              <span>Total in <span id="whatIfMonthsLabel">12</span> months</span>
-              <strong id="whatIfTotal">$0</strong>
-            </div>
-          </div>
-        </div>
-      </section>
-    </div>
-
-    <div class="kpi-row">
-      <div class="kpi-mini">
-        <div class="label">Total Transactions</div>
-        <div class="value" id="insightsTotalTx">0</div>
-      </div>
-      <div class="kpi-mini">
-        <div class="label">Active Goals</div>
-        <div class="value" id="insightsActiveGoals">0</div>
-      </div>
-      <div class="kpi-mini">
-        <div class="label">This Month Income</div>
-        <div class="value" id="insightsIncome">$0</div>
-      </div>
-      <div class="kpi-mini">
-        <div class="label">This Month Spending</div>
-        <div class="value" id="insightsSpending">$0</div>
-      </div>
-    </div>
-
-    <section class="card" style="margin-top:20px">
-      <div class="card-header">
-        <h2>Tools &amp; Templates</h2>
-      </div>
-      <div class="card-body">
-        <div class="actions" style="margin-bottom:12px">
-          <button class="btn btn-ghost active" type="button" data-insights-panel="tools">Tools</button>
-          <button class="btn btn-ghost" type="button" data-insights-panel="templates">Templates</button>
-        </div>
-        <div id="insightsToolsPanel">
-          <div id="tab-tools">
-            <div class="card">
-              <h2>Import / Export</h2>
-              <div class="section-body">
-                <div class="actions">
-                  <button id="exportBtn" class="btn btn-ghost">Export JSON</button>
-                  <label for="importFile" class="btn btn-ghost" style="display:inline-flex; align-items:center; gap:8px; cursor:pointer">
-                    Import JSON <input id="importFile" type="file" accept="application/json" style="display:none" />
-                  </label>
-                  <label for="csvFile" class="btn btn-ghost" style="display:inline-flex; align-items:center; gap:8px; cursor:pointer">
-                    Import CSV <input id="csvFile" type="file" accept=".csv,text/csv" style="display:none" />
-                  </label>
-                  <button id="undoImportBtn" class="btn btn-ghost" title="Undo last import" disabled>Undo Last Import</button>
-                  <button id="resetBtn" class="btn btn-danger">⚠ Reset Data</button>
-                </div>
-              </div>
-            </div>
-
-            <div class="card">
-              <h2>Calculators</h2>
-              <div class="section-body">
-                <div class="row">
-                  <div>
-                    <label for="whatIfNumber">What-If amount</label>
-                    <input id="whatIfNumber" type="number" min="0" step="1" inputmode="decimal" />
-                    <div class="mini-help">Projected Balance (Net − What-If): <strong id="projectedBalance">$0.00</strong></div>
-                  </div>
-                  <div>
-                    <label for="calcAmount">Quick Calculator: Planned purchase</label>
-                    <input id="calcAmount" type="number" min="0" step="1" inputmode="decimal" placeholder="e.g., 250" />
-                    <div class="mini-help">New Balance (Net − Planned): <strong id="calcResult">$0.00</strong></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="card">
-              <h2>Sync (E2EE via GitHub Gist)</h2>
-              <div class="section-body">
-                <div class="mini-help">Bring your own token (gist scope). We store only encrypted data.</div>
-                <div class="row">
-                  <div>
-                    <label for="syncPass">Passphrase (don’t lose this)</label>
-                    <input id="syncPass" type="password" placeholder="Your passphrase" />
-                  </div>
-                  <div>
-                    <label for="syncToken">GitHub Token (gist scope)</label>
-                    <input id="syncToken" type="password" placeholder="ghp_..." />
-                  </div>
-                </div>
-                <div class="row">
-                  <div>
-                    <label for="syncId">Sync ID (Gist ID)</label>
-                    <input id="syncId" type="text" placeholder="e.g., a1b2c3d4..." />
-                  </div>
-                  <div class="actions" style="align-items:end">
-                    <button id="btnCreateGist" class="btn btn-primary" type="button" style="width:auto">Create New Sync</button>
-                    <button id="btnConnect" class="btn btn-ghost" type="button" style="width:auto">Connect</button>
-                    <button id="btnSyncNow" class="btn btn-ghost" type="button" style="width:auto" disabled>Sync Now</button>
-                    <button id="btnSignOut" class="btn btn-danger" type="button" style="width:auto">Sign out of Sync</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div id="insightsTemplatesPanel" class="hide">
-          <div id="tab-templates">
-            <div class="card">
-              <h2>Recurring Expense Templates</h2>
-              <div class="section-body">
-                <form id="tplForm">
-                  <fieldset>
-                    <legend>Create / Edit Template</legend>
-                    <div class="row-3">
-                      <div><label for="tplLabel">Label (e.g., Rent)</label><input id="tplLabel" type="text" required /></div>
-      <div>
-        <label for="tplAmount">Amount</label>
-        <input id="tplAmount" type="number" min="0" step="0.01" inputmode="decimal" required />
-        <div id="tplAmountErr" class="error"></div>
-      </div>
-                      <div><label for="tplFreq">Frequency</label>
-                        <select id="tplFreq">
-                          <option value="weekly">Weekly</option>
-                          <option value="biweekly">Biweekly</option>
-                          <option value="semimonthly">Semi-monthly (1st & 15th)</option>
-                          <option value="monthly">Monthly</option>
-                        </select>
-                      </div>
-                    </div>
-                    <div id="tplAnchors" class="row-3" style="margin-top:8px">
-                      <div id="anchWeekly" class="hide"><label for="tplWeekday">Weekday</label>
-                        <select id="tplWeekday"><option value="0">Sunday</option><option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option></select>
-                      </div>
-                      <div id="anchBiweekly" class="hide"><label for="tplSeedDate">Seed date</label><input id="tplSeedDate" type="date" /></div>
-                      <div id="anchMonthly" class="hide"><label for="tplMonthDay">Day of month</label><input id="tplMonthDay" type="number" min="1" max="31" /></div>
-                    </div>
-                    <div class="row">
-                      <div><label for="tplStart">Start date</label><input id="tplStart" type="date" /></div>
-                      <div><label for="tplNotes">Notes (optional)</label><input id="tplNotes" type="text" /></div>
-                    </div>
-                    <div class="actions"><button class="btn btn-primary" id="tplSave" type="submit">Save Template</button><button class="btn btn-ghost" id="tplCancel" type="button">Cancel</button></div>
-                    <div id="tplErr" class="error" style="display:none">Please fill the highlighted fields.</div>
-                  </fieldset>
-                </form>
-                <div class="card" style="margin:12px 0 0">
-                  <h2>Templates List</h2>
-                  <div class="section-body" id="tplList" class="muted">No templates yet.</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="summary-row" id="payPeriodHeader" style="display:none">
-      <button class="nav-btn" id="prevPeriod" aria-label="Previous pay period">◀</button>
-      <div class="badge" id="periodLabel">—</div>
-      <button class="nav-btn" id="nextPeriod" aria-label="Next pay period">▶</button>
-    </div>
   </section>
 
   <!-- TRANSACTIONS -->
@@ -1106,7 +801,7 @@ Notes:
   <!-- CALENDAR -->
   <section id="tab-calendar" class="hide">
     <div class="card">
-      <h2>Calendar (bills-only)</h2>
+      <h2>Calendar</h2>
       <div class="section-body cal-wrap">
         <div class="cal-head">
           <div style="display:flex; gap:8px; align-items:center">
@@ -1114,59 +809,18 @@ Notes:
             <div class="badge" id="calLabel">—</div>
             <button class="nav-btn" id="calNext">▶</button>
           </div>
-          <div class="badge cal-total">Monthly scheduled bills: <strong id="calMonthTotal">$0.00</strong></div>
+          <div class="badge cal-total">Month total: <strong id="calMonthTotal">$0.00</strong></div>
         </div>
         <div class="cal-weekdays"><div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div></div>
         <div class="cal-grid" id="calGrid"></div>
         <div class="card" style="margin:0">
           <h2 id="dayDetailTitle">Selected day</h2>
-          <div class="section-body" id="dayDetailBody" class="muted">Click a day to see bills.</div>
+          <div class="section-body" id="dayDetailBody" class="muted">Click a day to see entries.</div>
         </div>
       </div>
     </div>
   </section>
 
-</div>
-
-<!-- CSV Mapping Modal -->
-<div id="csvModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:60; align-items:center; justify-content:center;">
-  <div class="card" style="width:min(980px, 96%); max-height:90%; overflow:auto;">
-    <h2 style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;">
-      Import CSV
-      <button id="csvClose" class="btn btn-ghost" style="width:auto">Close</button>
-    </h2>
-    <div class="section-body">
-      <div class="row-3">
-        <div><label for="mapDate">Date column</label><select id="mapDate"></select></div>
-        <div><label for="mapDesc">Description column</label><select id="mapDesc"></select></div>
-        <div><label for="amountMode">Amount mode</label>
-          <select id="amountMode">
-            <option value="auto">Auto-detect</option>
-            <option value="signed">Signed Amount column (neg=expense)</option>
-            <option value="dc">Debit/Credit columns</option>
-          </select>
-        </div>
-      </div>
-      <div class="row-3" id="amountRowSigned" style="margin-top:8px; display:none">
-        <div><label for="mapAmount">Amount column</label><select id="mapAmount"></select></div>
-        <div><label for="invertSign">Invert sign</label>
-          <select id="invertSign"><option value="no">No</option><option value="yes">Yes</option></select>
-        </div>
-      </div>
-      <div class="row-3" id="amountRowDC" style="margin-top:8px; display:none">
-        <div><label for="mapDebit">Debit column</label><select id="mapDebit"></select></div>
-        <div><label for="mapCredit">Credit column</label><select id="mapCredit"></select></div>
-        <div><label for="treatBlankAsZero">Treat blank as 0</label>
-          <select id="treatBlankAsZero"><option value="yes">Yes</option><option value="no">No</option></select>
-        </div>
-      </div>
-      <div class="mini-help" style="margin-top:6px">Rows with Description containing “Beginning Balance” are skipped.</div>
-      <div style="margin:10px 0"><button id="csvImportBtn" class="btn btn-primary" style="width:auto">Import</button></div>
-      <div style="overflow:auto; border:1px solid var(--border); border-radius:10px">
-        <table><thead><tr id="csvHead"></tr></thead><tbody id="csvBody"></tbody></table>
-      </div>
-    </div>
-  </div>
 </div>
 
 <!-- Goals Modal -->
@@ -1302,6 +956,7 @@ if ('serviceWorker' in navigator) {
 /* ====== Storage & Utilities ====== */
 const LS_KEY='simple_budget_v11';
 const GOALS_KEY='budget_goals_v1';
+const BUILD_STAMP='v1.4.7-2025-02-14';
 const fmt=new Intl.NumberFormat(undefined,{style:'currency',currency:getLikelyCurrency(),minimumFractionDigits:2,maximumFractionDigits:2});
 const dateFmt=new Intl.DateTimeFormat(undefined,{year:'numeric', month:'short', day:'numeric'});
 function getLikelyCurrency(){try{new Intl.NumberFormat(undefined,{style:'currency',currency:'USD'}).formatToParts(1);return(Intl.NumberFormat().resolvedOptions().currency||'USD')}catch{return'USD'}}
@@ -1325,6 +980,23 @@ function validateAmountInput(raw){
   if (value <= 0) return { ok:false, value:0, error:'Amount must be greater than 0.' };
   return { ok:true, value, error:'' };
 }
+function validateOptionalAmountInput(raw){
+  const trimmed = String(raw ?? '').trim();
+  if (!trimmed) return { ok:true, value:0, error:'' };
+  let normalized = trimmed;
+  if (normalized.includes(',') && normalized.includes('.')){
+    normalized = normalized.replace(/,/g,'');
+  } else if (normalized.includes(',') && !normalized.includes('.')){
+    normalized = normalized.replace(',', '.');
+  }
+  if (!/[0-9]/.test(normalized)){
+    return { ok:false, value:0, error:'Please enter a valid amount.' };
+  }
+  const value = parseAmount(normalized);
+  if (!Number.isFinite(value)) return { ok:false, value:0, error:'Please enter a valid amount.' };
+  if (value < 0) return { ok:false, value:0, error:'Amount must be 0 or greater.' };
+  return { ok:true, value, error:'' };
+}
 function uid(){return Math.random().toString(36).slice(2)+Date.now().toString(36)}
 function nowIso(){return new Date().toISOString()}
 function todayStr(){return new Date().toISOString().slice(0,10)}
@@ -1336,6 +1008,39 @@ function clipDOM(year, month, day){const last=new Date(year, month+1, 0).getDate
 function isFuture(iso){const d=new Date(iso);const t=new Date();t.setHours(0,0,0,0);return d>t}
 function inRange(iso,start,end){try{const d=new Date(iso);return d>=start && d<=end}catch{return false}}
 function escapeHtml(s){return String(s).replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]))}
+function getThisMonthRange(now=new Date()){
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  const end = new Date(now.getFullYear(), now.getMonth()+1, 0);
+  start.setHours(0,0,0,0);
+  end.setHours(23,59,59,999);
+  return {start, end};
+}
+function getTransactionsInRange(transactions, start, end, options={}){
+  const includeFutureScheduled = options.includeFutureScheduled || false;
+  return (transactions||[]).filter(x=>{
+    if (!inRange(x.date, start, end)) return false;
+    if (x.scheduled && isFuture(x.date) && !includeFutureScheduled) return false;
+    return true;
+  });
+}
+function normalizeCategory(category){
+  const raw = (category || 'Other').trim();
+  const key = raw.toLowerCase();
+  const map = {
+    grocery: 'Groceries', groceries: 'Groceries', food: 'Food', dining: 'Food', restaurant: 'Food', restaurants: 'Food',
+    transport: 'Transport', transportation: 'Transport', utilities: 'Utilities', housing: 'Housing', debt: 'Debt',
+    health: 'Health', entertainment: 'Entertainment', savings: 'Savings', other: 'Other'
+  };
+  return map[key] || raw;
+}
+function rollupSpendingByCategory(expenses, range){
+  const totals = {};
+  getTransactionsInRange(expenses, range.start, range.end).forEach(x=>{
+    const key = normalizeCategory(x.category || 'Other');
+    totals[key] = (totals[key] || 0) + Math.abs(Number(x.amount||0));
+  });
+  return totals;
+}
 const toastQueue = new Set();
 function showToast(message, type='success'){
   if (toastQueue.has(message)) return;
@@ -1356,6 +1061,38 @@ function updateLastSaved(){
   const now = new Date();
   const time = now.toLocaleTimeString(undefined, {hour:'2-digit', minute:'2-digit'});
   dom.lastSavedLabel.textContent = `Last saved: ${dateFmt.format(now)} ${time}`;
+}
+function getKpiMetrics(){
+  return [
+    {id:'safe', cardId:'safePill', cardClass:'safe', icon:'💳', label:'Safe to spend', valueId:'safeToSpend', value:'$0.00', subHtml:'Next payday <span id="nextPaydayLabel">—</span>'},
+    {id:'month', cardId:'kpiMonth', cardClass:'', icon:'📆', label:'This month', valueId:'sumNet', value:'$0.00', subHtml:'Income <strong id="sumIncome">$0.00</strong> · Out <strong id="sumExpenses">$0.00</strong>'},
+    {id:'burn', cardId:'kpiBurn', cardClass:'', icon:'🔥', label:'Daily burn', valueId:'dailyBurn', value:'$0.00', subHtml:'Average spend per day'},
+    {id:'savings', cardId:'kpiSavings', cardClass:'', icon:'💹', label:'Savings rate', valueId:'savingsRate', value:'0%', subHtml:'Net vs income'},
+    {id:'debt', cardId:'kpiDebt', cardClass:'', icon:'📉', label:'Debt pressure', valueId:'debtPressure', value:'0%', subHtml:'Spending vs income'}
+  ];
+}
+function renderKpiCards(){
+  if (!dom.kpiGrid) return;
+  const metrics = getKpiMetrics();
+  dom.kpiGrid.innerHTML = metrics.map(metric=>`
+    <div class="kpi-card ${metric.cardClass}" id="${metric.cardId}">
+      <div class="kpi-icon">${metric.icon}</div>
+      <div>
+        <div class="kpi-label">${metric.label}</div>
+        <div class="kpi-value" id="${metric.valueId}">${metric.value}</div>
+        <div class="kpi-sub">${metric.subHtml}</div>
+      </div>
+    </div>
+  `).join('');
+  dom.safePill = byId('safePill');
+  dom.safeToSpend = byId('safeToSpend');
+  dom.sumIncome = byId('sumIncome');
+  dom.sumExpenses = byId('sumExpenses');
+  dom.sumNet = byId('sumNet');
+  dom.dailyBurn = byId('dailyBurn');
+  dom.savingsRate = byId('savingsRate');
+  dom.debtPressure = byId('debtPressure');
+  dom.nextPaydayLabel = byId('nextPaydayLabel');
 }
 const confirmState = { onConfirm: null };
 function closeConfirmModal(reason){
@@ -1386,21 +1123,45 @@ function confirmAction(message, onConfirm){
 function byId(id){return document.getElementById(id)}
 
 /* ====== State ====== */
-let state = loadState();
+const store = {
+  state: null,
+  goals: [],
+  get transactions(){ return [...(this.state?.incomes||[]), ...(this.state?.expenses||[])]; },
+  get scheduledItems(){ return this.transactions.filter(x=>x.scheduled); },
+  get settings(){ return this.state?.settings || {}; }
+};
+let state;
+let goals;
+function loadState(){try{const raw=localStorage.getItem(LS_KEY); if(!raw) return seed(); const obj=JSON.parse(raw); return obj;}catch{return seed()}}
+function loadGoals(){try{const raw=localStorage.getItem(GOALS_KEY); if(!raw) return []; const obj=JSON.parse(raw); return Array.isArray(obj)?obj:[];}catch{return []}}
+function initStore(){
+  store.state = loadState();
+  store.goals = loadGoals();
+  state = store.state;
+  goals = store.goals;
+}
+function saveState(){
+  store.state = state;
+  localStorage.setItem(LS_KEY, JSON.stringify(state));
+  updateLastSaved();
+}
+function saveGoals(){
+  store.goals = goals;
+  localStorage.setItem(GOALS_KEY, JSON.stringify(goals));
+  updateLastSaved();
+}
+function setState(next){ state = next; store.state = state; }
+function setGoals(next){ goals = next; store.goals = goals; }
+
+initStore();
 if (!state.settings) state.settings = { payFreq:'biweekly', seedPayday: toISO(addDays(new Date(), 14)) };
 if (!('payPeriodOffset' in state)) state.payPeriodOffset = 0;
 if (!state.templates) state.templates = [];
 if (!state.lastImportBatch) state.lastImportBatch = null;
 if (!state.sync) state.sync = { provider:null, gistId:null, token:null, keySalt:null, passHint:null, lastRev:0 };
 saveState();
-let goals = loadGoals();
-
-function loadState(){try{const raw=localStorage.getItem(LS_KEY); if(!raw) return seed(); const obj=JSON.parse(raw); return obj;}catch{return seed()}}
-function saveState(){localStorage.setItem(LS_KEY, JSON.stringify(state))}
-function loadGoals(){try{const raw=localStorage.getItem(GOALS_KEY); if(!raw) return []; const obj=JSON.parse(raw); return Array.isArray(obj)?obj:[];}catch{return []}}
-function saveGoals(){localStorage.setItem(GOALS_KEY, JSON.stringify(goals))}
 function seed(){
-  const s = { version:'1.4.6', settings:{payFreq:'biweekly', seedPayday: toISO(addDays(new Date(), 14))}, payPeriodOffset:0, incomes:[], expenses:[], templates:[], lastImportBatch:null, sync:{provider:null,gistId:null,token:null,keySalt:null,passHint:null,lastRev:0} };
+  const s = { version:'1.4.7', settings:{payFreq:'biweekly', seedPayday: toISO(addDays(new Date(), 14))}, payPeriodOffset:0, incomes:[], expenses:[], templates:[], lastImportBatch:null, sync:{provider:null,gistId:null,token:null,keySalt:null,passHint:null,lastRev:0} };
   s.incomes.push({id:uid(), date:toISO(addDays(new Date(), -10)), source:'Paycheck', amount:3200, scheduled:false, updatedAt:nowIso()});
   s.incomes.push({id:uid(), date:toISO(addDays(new Date(), -3)), source:'Freelance', amount:450, scheduled:false, updatedAt:nowIso()});
   s.expenses.push({id:uid(), date:toISO(addDays(new Date(), -9)), category:'Housing', amount:1200, notes:'Rent', scheduled:false, updatedAt:nowIso()});
@@ -1483,11 +1244,10 @@ function getActiveRange(){
 
 /* ====== Calculations ====== */
 function totalsForRange(range){
-  const today = new Date(); today.setHours(0,0,0,0);
-  const inc = state.incomes.filter(x=>inRange(x.date, range.start, range.end) && !(x.scheduled && isFuture(x.date)))
-                           .reduce((s,x)=>s+Number(x.amount||0),0);
-  const exp = state.expenses.filter(x=>inRange(x.date, range.start, range.end) && !(x.scheduled && isFuture(x.date)))
-                            .reduce((s,x)=>s+Number(x.amount||0),0);
+  const inc = getTransactionsInRange(state.incomes, range.start, range.end)
+    .reduce((s,x)=>s+Number(x.amount||0),0);
+  const exp = getTransactionsInRange(state.expenses, range.start, range.end)
+    .reduce((s,x)=>s+Number(x.amount||0),0);
   return {inc, exp, net: inc-exp};
 }
 function computeUpcoming7(){
@@ -1608,7 +1368,6 @@ const dom = {
   monthIncome: byId('monthIncome'), monthSpending: byId('monthSpending'), monthProjected: byId('monthProjected'),
   addTransactionBtn: byId('addTransactionBtn'), setGoalBtn: byId('setGoalBtn'), runScenarioBtn: byId('runScenarioBtn'),
   recentAddBtn: byId('recentAddBtn'),
-  payPeriodHeader: byId('payPeriodHeader'), periodLabel: byId('periodLabel'),
   // upcoming
   upBills: byId('upBills'), upIncome: byId('upIncome'), upNet: byId('upNet'), upcomingList: byId('upcomingList'),
   // goals
@@ -1629,8 +1388,6 @@ const dom = {
   whatIfExtra: byId('whatIfExtra'), whatIfExtraLabel: byId('whatIfExtraLabel'),
   whatIfHorizon: byId('whatIfHorizon'), whatIfHorizonLabel: byId('whatIfHorizonLabel'),
   whatIfMonthly: byId('whatIfMonthly'), whatIfTotal: byId('whatIfTotal'), whatIfMonthsLabel: byId('whatIfMonthsLabel'),
-  insightsToolsPanel: byId('insightsToolsPanel'), insightsTemplatesPanel: byId('insightsTemplatesPanel'),
-  insightsPanelButtons: document.querySelectorAll('[data-insights-panel]'),
   // add transaction modal
   txnModalOverlay: byId('txnModalOverlay'), txnModalClose: byId('txnModalClose'), txnModalCancel: byId('txnModalCancel'),
   txnModalAdd: byId('txnModalAdd'), txnTypeSwitch: byId('txnTypeSwitch'), txnAmount: byId('txnAmount'), txnAmountErr: byId('txnAmountErr'),
@@ -1646,24 +1403,10 @@ const dom = {
   incomeForm: byId('incomeForm'), incomeDate: byId('incomeDate'), incomeSource: byId('incomeSource'), incomeAmount: byId('incomeAmount'), incomeAmountErr: byId('incomeAmountErr'), incomeScheduled: byId('incomeScheduled'), incomeSubmitBtn: byId('incomeSubmitBtn'), incomeCancelEdit: byId('incomeCancelEdit'),
   expenseForm: byId('expenseForm'), expenseDate: byId('expenseDate'), expenseCategory: byId('expenseCategory'), expenseCategoryCustom: byId('expenseCategoryCustom'), expenseAmount: byId('expenseAmount'), expenseAmountErr: byId('expenseAmountErr'), expenseNotes: byId('expenseNotes'), expenseScheduled: byId('expenseScheduled'), expenseSubmitBtn: byId('expenseSubmitBtn'), expenseCancelEdit: byId('expenseCancelEdit'),
   incomeTbody: byId('incomeTbody'), expenseTbody: byId('expenseTbody'),
-  // tools
-  exportBtn: byId('exportBtn'), importFile: byId('importFile'),
-  csvFile: byId('csvFile'), csvModal: byId('csvModal'), csvClose: byId('csvClose'),
-  mapDate: byId('mapDate'), mapDesc: byId('mapDesc'), amountMode: byId('amountMode'), mapAmount: byId('mapAmount'), invertSign: byId('invertSign'), mapDebit: byId('mapDebit'), mapCredit: byId('mapCredit'), treatBlankAsZero: byId('treatBlankAsZero'),
-  csvHead: byId('csvHead'), csvBody: byId('csvBody'), csvImportBtn: byId('csvImportBtn'),
-  undoImportBtn: byId('undoImportBtn'),
-  resetBtn: byId('resetBtn'),
-  whatIfNumber: byId('whatIfNumber'), projectedBalance: byId('projectedBalance'), calcAmount: byId('calcAmount'), calcResult: byId('calcResult'),
   // calendar
   calPrev: byId('calPrev'), calNext: byId('calNext'), calLabel: byId('calLabel'), calGrid: byId('calGrid'), calMonthTotal: byId('calMonthTotal'), dayDetailTitle: byId('dayDetailTitle'), dayDetailBody: byId('dayDetailBody'),
-  // templates
-  tplForm: byId('tplForm'), tplLabel: byId('tplLabel'), tplAmount: byId('tplAmount'), tplFreq: byId('tplFreq'), tplWeekday: byId('tplWeekday'), tplSeedDate: byId('tplSeedDate'), tplMonthDay: byId('tplMonthDay'), tplStart: byId('tplStart'), tplNotes: byId('tplNotes'), tplSave: byId('tplSave'), tplCancel: byId('tplCancel'), tplList: byId('tplList'), tplErr: byId('tplErr'),
-  tplAmountErr: byId('tplAmountErr'),
-  anchWeekly: byId('anchWeekly'), anchBiweekly: byId('anchBiweekly'), anchMonthly: byId('anchMonthly'),
-  // sync
-  syncPass: byId('syncPass'), syncToken: byId('syncToken'), syncId: byId('syncId'),
-  btnCreateGist: byId('btnCreateGist'), btnConnect: byId('btnConnect'), btnSyncNow: byId('btnSyncNow'), btnSignOut: byId('btnSignOut'),
-  lastSavedLabel: byId('lastSavedLabel'),
+  kpiGrid: byId('kpiGrid'),
+  lastSavedLabel: byId('lastSavedLabel'), buildStamp: byId('buildStamp'),
   confirmModalOverlay: byId('confirmModalOverlay'), confirmModalClose: byId('confirmModalClose'),
   confirmModalCancel: byId('confirmModalCancel'), confirmModalConfirm: byId('confirmModalConfirm'),
   confirmModalMessage: byId('confirmModalMessage')
@@ -1671,11 +1414,10 @@ const dom = {
 
 /* ====== Render ====== */
 function renderHome(){
+  renderKpiCards();
   generateTemplateInstances();
   const now = new Date(); now.setHours(0,0,0,0);
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const monthEnd = new Date(now.getFullYear(), now.getMonth()+1, 0); monthEnd.setHours(23,59,59,999);
-  const monthRange = {start: monthStart, end: monthEnd};
+  const monthRange = getThisMonthRange(now);
   const {inc, exp, net} = totalsForRange(monthRange);
   dom.sumIncome.textContent = formatCurrency(inc);
   dom.sumExpenses.textContent = formatCurrency(exp);
@@ -1693,8 +1435,8 @@ function renderHome(){
   dom.projectedToPayday.textContent = formatCurrency(proj.projected);
   dom.nextPaydayLabel.textContent = formatDateDisplay(toISO(proj.next));
 
-  const scheduledInc = state.incomes.filter(x=>x.scheduled && inRange(x.date, now, monthEnd)).reduce((s,x)=>s+Number(x.amount||0),0);
-  const scheduledExp = state.expenses.filter(x=>x.scheduled && inRange(x.date, now, monthEnd)).reduce((s,x)=>s+Number(x.amount||0),0);
+  const scheduledInc = state.incomes.filter(x=>x.scheduled && inRange(x.date, now, monthRange.end)).reduce((s,x)=>s+Number(x.amount||0),0);
+  const scheduledExp = state.expenses.filter(x=>x.scheduled && inRange(x.date, now, monthRange.end)).reduce((s,x)=>s+Number(x.amount||0),0);
   if (dom.monthProjected) dom.monthProjected.textContent = formatCurrency(net + scheduledInc - scheduledExp);
 
   const sts = computeSafeToSpend();
@@ -1744,11 +1486,7 @@ function renderHome(){
   }
 
   if (dom.categoryChart){
-    const categoryTotals = {};
-    state.expenses.filter(x=>!x.scheduled && inRange(x.date, monthStart, monthEnd)).forEach(x=>{
-      const key = (x.category || 'Other');
-      categoryTotals[key] = (categoryTotals[key] || 0) + Number(x.amount||0);
-    });
+    const categoryTotals = rollupSpendingByCategory(state.expenses, monthRange);
     const totalSpend = Object.values(categoryTotals).reduce((s,x)=>s+x,0);
     const topCategories = Object.entries(categoryTotals).sort((a,b)=>b[1]-a[1]).slice(0,5);
     dom.categoryChart.innerHTML = topCategories.length ? topCategories.map(([name, amount])=>{
@@ -1802,6 +1540,13 @@ function goalTypeMeta(type){
   if (type==='Debt Payoff') return {icon:'💳', bg:'#fee2e2'};
   if (type==='Big Purchase') return {icon:'🎯', bg:'#fef3c7'};
   return {icon:'🐷', bg:'#dcfce7'};
+}
+function addGoalRecord(list, goalData){
+  const next = Array.isArray(list) ? [...list] : [];
+  const idx = next.findIndex(g=>g.id===goalData.id);
+  if (idx >= 0) next[idx] = goalData;
+  else next.push(goalData);
+  return next;
 }
 function renderGoals(){
   const totalSaved = goals.reduce((s,g)=>s+Number(g.currentAmount||0),0);
@@ -1857,9 +1602,8 @@ function renderGoals(){
 }
 function renderInsights(){
   const now = new Date(); now.setHours(0,0,0,0);
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const monthEnd = new Date(now.getFullYear(), now.getMonth()+1, 0); monthEnd.setHours(23,59,59,999);
-  const {inc, exp} = totalsForRange({start: monthStart, end: monthEnd});
+  const monthRange = getThisMonthRange(now);
+  const {inc, exp} = totalsForRange(monthRange);
   dom.insightsIncome.textContent = formatCurrency(inc);
   dom.insightsSpending.textContent = formatCurrency(exp);
   dom.insightsActiveGoals.textContent = String(goals.length);
@@ -1901,11 +1645,7 @@ function renderInsights(){
   }
 
   if (dom.insightsCategoryChart){
-    const totals = {};
-    state.expenses.filter(x=>!x.scheduled && inRange(x.date, monthStart, monthEnd)).forEach(x=>{
-      const key = x.category || 'Other';
-      totals[key] = (totals[key] || 0) + Number(x.amount||0);
-    });
+    const totals = rollupSpendingByCategory(state.expenses, monthRange);
     const entries = Object.entries(totals).sort((a,b)=>b[1]-a[1]);
     const total = entries.reduce((s,[,v])=>s+v,0) || 1;
     const colors = ['#22c55e','#6366f1','#f97316','#ec4899','#3b82f6','#facc15'];
@@ -1943,9 +1683,8 @@ function updateWhatIf(){
   dom.whatIfHorizonLabel.textContent = `${months} months`;
   dom.whatIfMonthsLabel.textContent = String(months);
   const now = new Date(); now.setHours(0,0,0,0);
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const monthEnd = new Date(now.getFullYear(), now.getMonth()+1, 0); monthEnd.setHours(23,59,59,999);
-  const {inc, exp} = totalsForRange({start: monthStart, end: monthEnd});
+  const monthRange = getThisMonthRange(now);
+  const {inc, exp} = totalsForRange(monthRange);
   const baseSavings = inc - exp;
   const newMonthly = baseSavings + extra;
   dom.whatIfMonthly.textContent = formatCurrency(newMonthly);
@@ -1953,7 +1692,7 @@ function updateWhatIf(){
 }
 function renderTransactions(){
   const range = getActiveRange();
-  const incRows = state.incomes.filter(x=>inRange(x.date, range.start, range.end) && !(x.scheduled && isFuture(x.date)))
+  const incRows = getTransactionsInRange(state.incomes, range.start, range.end)
     .sort((a,b)=>String(b.date).localeCompare(String(a.date))).map(row=>`
     <tr>
       <td>${escapeHtml(formatDateDisplay(row.date||''))}</td>
@@ -1967,7 +1706,7 @@ function renderTransactions(){
     </tr>`).join('');
   dom.incomeTbody.innerHTML = incRows || '<tr><td colspan="5" class="muted">No items for this view.</td></tr>';
 
-  const expRows = state.expenses.filter(x=>inRange(x.date, range.start, range.end) && !(x.scheduled && isFuture(x.date)))
+  const expRows = getTransactionsInRange(state.expenses, range.start, range.end)
     .sort((a,b)=>String(b.date).localeCompare(String(a.date))).map(row=>`
     <tr>
       <td>${escapeHtml(formatDateDisplay(row.date||''))}</td>
@@ -1982,7 +1721,16 @@ function renderTransactions(){
     </tr>`).join('');
   dom.expenseTbody.innerHTML = expRows || '<tr><td colspan="6" class="muted">No items for this view.</td></tr>';
 }
+let editingIncomeId=null;
+let editingExpenseId=null;
 let calCursor = new Date();
+function getCalendarEntries(iso){
+  const items = [
+    ...state.incomes.map(x=>({ ...x, type:'income', label:x.source||'Income' })),
+    ...state.expenses.map(x=>({ ...x, type:'expense', label:x.category||'Expense', notes:x.notes||'' }))
+  ].filter(x=>x.date===iso);
+  return items.sort((a,b)=>Number(a.amount||0)-Number(b.amount||0));
+}
 function renderCalendar(){
   const y=calCursor.getFullYear(), m=calCursor.getMonth();
   dom.calLabel.textContent = new Intl.DateTimeFormat(undefined,{month:'long', year:'numeric'}).format(calCursor);
@@ -1993,9 +1741,11 @@ function renderCalendar(){
   dom.calGrid.innerHTML = '';
   const monthStart = new Date(y,m,1); monthStart.setHours(0,0,0,0);
   const monthEnd = new Date(y, m+1, 0); monthEnd.setHours(23,59,59,999);
-  const monthBills = state.expenses.filter(x=>x.scheduled && inRange(x.date, monthStart, monthEnd))
-                    .reduce((s,x)=>s+Number(x.amount||0),0);
-  dom.calMonthTotal.textContent = formatCurrency(monthBills);
+  const monthIncome = getTransactionsInRange(state.incomes, monthStart, monthEnd, {includeFutureScheduled:true})
+    .reduce((s,x)=>s+Number(x.amount||0),0);
+  const monthExpenses = getTransactionsInRange(state.expenses, monthStart, monthEnd, {includeFutureScheduled:true})
+    .reduce((s,x)=>s+Number(x.amount||0),0);
+  dom.calMonthTotal.textContent = formatCurrency(monthIncome - monthExpenses);
 
   const todayIso = todayStr();
   for (let d=new Date(start); d<=end; d=addDays(d,1)){
@@ -2003,11 +1753,11 @@ function renderCalendar(){
     const cell=document.createElement('div');
     cell.className='cal-cell'+(d.getMonth()!==m?' out':'')+(iso===todayIso?' today':'');
     cell.setAttribute('data-date', iso);
+    const dayItems = getCalendarEntries(iso);
+    const dayNet = dayItems.reduce((sum, item)=>sum + (item.type==='income' ? Number(item.amount||0) : -Number(item.amount||0)), 0);
     cell.innerHTML = `
       <div class="cal-date">${d.getDate()}</div>
-      <div class="cal-amt">${formatCurrency(
-        state.expenses.filter(x=>x.scheduled && x.date===iso).reduce((s,x)=>s+Number(x.amount||0),0)
-      )}</div>
+      <div class="cal-amt">${formatCurrency(dayNet)}</div>
     `;
     cell.addEventListener('click', ()=>showDayDetails(iso));
     dom.calGrid.appendChild(cell);
@@ -2016,17 +1766,20 @@ function renderCalendar(){
   showDayDetails(isInMonth ? todayIso : toISO(new Date(y,m,1)));
 }
 function showDayDetails(iso){
-  const items = state.expenses.filter(x=>x.scheduled && x.date===iso).sort((a,b)=>Number(a.amount)-Number(b.amount));
-  byId('dayDetailTitle').textContent = `Bills on ${formatDateDisplay(iso)}`;
-  byId('dayDetailBody').innerHTML = items.length ? items.map(x=>`
-    <div style="display:flex; justify-content:space-between; gap:8px; padding:6px 0; border-bottom:1px solid #1a2030">
-      <span>${escapeHtml(x.category||'Bill')} <span class="muted">${escapeHtml(x.notes||'')}</span></span>
-      <div style="display:flex; gap:8px; align-items:center">
-        <span style="color:#ff9c9c">${formatCurrency(x.amount||0)}</span>
-        <button class="btn btn-ghost" data-dd="paid" data-id="${x.id}">Mark Paid</button>
-        <button class="btn btn-ghost" data-dd="del"  data-id="${x.id}">Delete</button>
-      </div>
-    </div>`).join('') : '<div class="muted">No scheduled bills on this day.</div>';
+  const items = getCalendarEntries(iso);
+  byId('dayDetailTitle').textContent = `Entries on ${formatDateDisplay(iso)}`;
+  byId('dayDetailBody').innerHTML = items.length ? items.map(x=>{
+    const amount = x.type==='expense' ? -Math.abs(Number(x.amount||0)) : Number(x.amount||0);
+    return `
+      <div style="display:flex; justify-content:space-between; gap:8px; padding:6px 0; border-bottom:1px solid #1a2030">
+        <span>${escapeHtml(x.label||'Entry')} <span class="muted">${x.scheduled ? 'Scheduled' : 'Actual'}</span> ${x.notes ? `<span class="muted">${escapeHtml(x.notes)}</span>` : ''}</span>
+        <div style="display:flex; gap:8px; align-items:center">
+          <span style="color:${x.type==='expense' ? '#ff9c9c' : '#86efac'}">${formatCurrency(amount)}</span>
+          ${x.scheduled ? `<button class="btn btn-ghost" data-dd="paid" data-id="${x.id}" data-type="${x.type}">Mark Paid</button>
+          <button class="btn btn-ghost" data-dd="del" data-id="${x.id}" data-type="${x.type}">Delete</button>` : ''}
+        </div>
+      </div>`;
+  }).join('') : '<div class="muted">No entries on this day.</div>';
 }
 
 /* ====== Events ====== */
@@ -2183,8 +1936,8 @@ function initGoals(){
     dom.goalModalCreate.disabled = true;
     const name = dom.goalName.value.trim();
     const targetCheck = validateAmountInput(dom.goalTarget.value);
-    const currentCheck = validateAmountInput(dom.goalCurrent.value);
-    const monthlyCheck = validateAmountInput(dom.goalMonthly.value);
+    const currentCheck = validateOptionalAmountInput(dom.goalCurrent.value);
+    const monthlyCheck = validateOptionalAmountInput(dom.goalMonthly.value);
     dom.goalTargetErr.style.display = 'none';
     dom.goalCurrentErr.style.display = 'none';
     dom.goalMonthlyErr.style.display = 'none';
@@ -2227,11 +1980,8 @@ function initGoals(){
       priority,
       createdAt: editingId ? goals.find(g=>g.id===editingId)?.createdAt || nowIso() : nowIso()
     };
-    if (editingId){
-      goals = goals.map(g=>g.id===editingId ? goalData : g);
-    } else {
-      goals.push(goalData);
-    }
+    goals = addGoalRecord(goals, goalData);
+    setGoals(goals);
     saveGoals();
     closeGoalModal();
     renderGoals();
@@ -2249,6 +1999,7 @@ function initGoals(){
     if (act==='delete'){
       confirmAction('Delete this goal?', ()=>{
         goals = goals.filter(g=>g.id!==id);
+        setGoals(goals);
         saveGoals();
         renderGoals();
         renderInsights();
@@ -2268,6 +2019,7 @@ function initGoals(){
         return;
       }
       goal.currentAmount = Number(goal.currentAmount||0) + check.value;
+      setGoals(goals);
       saveGoals();
       renderGoals();
       renderInsights();
@@ -2281,20 +2033,6 @@ function initInsights(){
     btn.addEventListener('click', ()=>{
       const tab = btn.getAttribute('data-insights-tab');
       setInsightsTab(tab);
-    });
-  });
-  dom.insightsPanelButtons.forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      const panel = btn.getAttribute('data-insights-panel');
-      dom.insightsPanelButtons.forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
-      if (panel==='tools'){
-        dom.insightsToolsPanel.classList.remove('hide');
-        dom.insightsTemplatesPanel.classList.add('hide');
-      } else {
-        dom.insightsTemplatesPanel.classList.remove('hide');
-        dom.insightsToolsPanel.classList.add('hide');
-      }
     });
   });
   dom.whatIfExtra.addEventListener('input', updateWhatIf);
@@ -2368,132 +2106,6 @@ function initTxnModal(){
       if (dom.confirmModalOverlay.classList.contains('is-open')) closeConfirmModal('escape');
       if (dom.goalModalOverlay.style.display==='flex') closeGoalModal();
       if (dom.txnModalOverlay.style.display==='flex') closeTxnModal();
-    }
-  });
-}
-function initGoals(){
-  dom.newGoalBtn.addEventListener('click', ()=>openGoalModal());
-  dom.goalModalClose.addEventListener('click', closeGoalModal);
-  dom.goalModalCancel.addEventListener('click', closeGoalModal);
-  dom.goalPriorityGroup.addEventListener('click', (e)=>{
-    const btn = e.target.closest('button[data-priority]'); if(!btn) return;
-    dom.goalPriorityGroup.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-  });
-  dom.goalModalCreate.addEventListener('click', ()=>{
-    const name = dom.goalName.value.trim();
-    const target = parseAmount(dom.goalTarget.value);
-    const current = parseAmount(dom.goalCurrent.value || '0');
-    if (!name){ alert('Goal name is required.'); return; }
-    if (!Number.isFinite(target) || target<=0){ alert('Target amount must be greater than 0.'); return; }
-    if (!Number.isFinite(current) || current<0){ alert('Current progress cannot be negative.'); return; }
-    const priority = dom.goalPriorityGroup.querySelector('.active')?.dataset.priority || 'medium';
-    const editingId = dom.goalModalCreate.dataset.editingId;
-    const goalData = {
-      id: editingId || uid(),
-      name,
-      type: dom.goalType.value,
-      targetAmount: target,
-      currentAmount: current,
-      targetDate: dom.goalDate.value,
-      monthlyContribution: parseAmount(dom.goalMonthly.value || '0'),
-      priority,
-      createdAt: editingId ? goals.find(g=>g.id===editingId)?.createdAt || nowIso() : nowIso()
-    };
-    if (editingId){
-      goals = goals.map(g=>g.id===editingId ? goalData : g);
-    } else {
-      goals.push(goalData);
-    }
-    saveGoals();
-    closeGoalModal();
-    renderGoals();
-    renderInsights();
-  });
-  dom.goalsGrid.addEventListener('click', (e)=>{
-    const action = e.target.closest('[data-goal-action]'); if(!action) return;
-    const id = action.getAttribute('data-id');
-    const goal = goals.find(g=>g.id===id);
-    if (!goal) return;
-    const act = action.getAttribute('data-goal-action');
-    if (act==='delete'){
-      if (!confirm('Delete this goal?')) return;
-      goals = goals.filter(g=>g.id!==id);
-      saveGoals();
-      renderGoals();
-      renderInsights();
-    }
-    if (act==='edit'){
-      openGoalModal(goal);
-    }
-    if (act==='log'){
-      const input = prompt('Log contribution amount:', '0');
-      if (input===null) return;
-      const amt = parseAmount(input);
-      if (!Number.isFinite(amt) || amt<=0){ alert('Enter a valid amount.'); return; }
-      goal.currentAmount = Number(goal.currentAmount||0) + amt;
-      saveGoals();
-      renderGoals();
-      renderInsights();
-    }
-  });
-}
-function initInsights(){
-  dom.insightsTabs.forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      const tab = btn.getAttribute('data-insights-tab');
-      setInsightsTab(tab);
-    });
-  });
-  dom.whatIfExtra.addEventListener('input', updateWhatIf);
-  dom.whatIfHorizon.addEventListener('input', updateWhatIf);
-  setInsightsTab('weekly');
-}
-function initTxnModal(){
-  dom.txnModalClose.addEventListener('click', closeTxnModal);
-  dom.txnModalCancel.addEventListener('click', closeTxnModal);
-  dom.txnTypeSwitch.addEventListener('click', (e)=>{
-    const btn = e.target.closest('button[data-txn-type]'); if(!btn) return;
-    dom.txnTypeSwitch.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    const type = btn.dataset.txnType;
-    dom.txnCategoryWrap.style.display = type==='expense' ? '' : 'none';
-  });
-  dom.txnModalAdd.addEventListener('click', ()=>{
-    const activeBtn = dom.txnTypeSwitch.querySelector('button.active');
-    const type = activeBtn?.dataset.txnType || 'expense';
-    const amt = parseAmount(dom.txnAmount.value);
-    if (!Number.isFinite(amt) || amt<=0){ alert('Enter a valid amount.'); return; }
-    const desc = dom.txnDesc.value.trim();
-    const date = dom.txnDate.value || todayStr();
-    const scheduled = dom.txnRecurring.checked;
-    if (type==='income'){
-      state.incomes.push({
-        id: uid(),
-        date,
-        source: desc || 'Income',
-        amount: amt,
-        scheduled,
-        updatedAt: nowIso()
-      });
-      saveState();
-      renderHome(); renderTransactions();
-      toast('Income added');
-    } else {
-      const category = dom.txnCategory.value || 'Other';
-      state.expenses.push({
-        id: uid(),
-        date,
-        category,
-        amount: amt,
-        notes: desc,
-        scheduled,
-        templateId: null,
-        updatedAt: nowIso()
-      });
-      saveState();
-      renderHome(); renderTransactions();
-      toast('Expense added');
     }
     closeTxnModal();
   });
@@ -2626,398 +2238,49 @@ function initTransactions(){
     }
   });
 }
-
-/* Templates tab (unchanged render/handlers from 1.3.0)… */
-let editingIncomeId=null;
-let editingExpenseId=null;
-let editingTplId=null;
-function showTplAnchors(){ const f=dom.tplFreq.value; byId('anchWeekly').classList.toggle('hide', f!=='weekly'); byId('anchBiweekly').classList.toggle('hide', f!=='biweekly'); byId('anchMonthly').classList.toggle('hide', f!=='monthly'); }
-function renderTemplates(){
-  if (!state.templates.length){ dom.tplList.innerHTML='<div class="muted">No templates yet.</div>'; return; }
-  dom.tplList.innerHTML = state.templates.map(t=>`
-    <div style="display:flex; justify-content:space-between; gap:8px; padding:8px 0; border-bottom:1px solid #1a2030">
-      <div><strong>${escapeHtml(t.label)}</strong> — ${formatCurrency(t.amount)} • ${escapeHtml(t.freq)} ${t.freq==='weekly'?('( '+['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][t.weekday??0]+' )'):''}
-        ${t.freq==='biweekly'?('( seed '+escapeHtml(t.seedDate||t.startDate||'')+' )'):''}
-        ${t.freq==='monthly'?('( day '+(t.day||1)+' )'):''}
-        <div class="muted">Start: ${escapeHtml(t.startDate||'—')} ${t.notes?('• '+escapeHtml(t.notes)) : ''}</div>
-      </div>
-      <div class="actions" style="align-items:center">
-        <label class="muted" style="display:flex; gap:6px; align-items:center">Active <input type="checkbox" data-tpl="toggle" data-id="${t.id}" ${t.active===false?'':'checked'}></label>
-        <button class="btn btn-ghost" data-tpl="edit" data-id="${t.id}">Edit</button>
-        <button class="btn btn-danger" data-tpl="del" data-id="${t.id}">Delete</button>
-      </div>
-    </div>`).join('');
-}
-function clearTplForm(){ editingTplId=null; dom.tplLabel.value=''; dom.tplAmount.value=''; dom.tplFreq.value='monthly'; dom.tplWeekday.value='0'; dom.tplSeedDate.value=''; dom.tplMonthDay.value='1'; dom.tplStart.value=''; dom.tplNotes.value=''; showTplAnchors(); }
-function initTemplates(){
-  showTplAnchors();
-  dom.tplFreq.addEventListener('change', showTplAnchors);
-  dom.tplCancel.addEventListener('click', clearTplForm);
-  dom.tplForm.addEventListener('submit', (e)=>{
-    e.preventDefault();
-    dom.tplSave.disabled = true;
-    const label=dom.tplLabel.value.trim();
-    const amountCheck=validateAmountInput(dom.tplAmount.value);
-    const freq=dom.tplFreq.value;
-    const weekday=Number(dom.tplWeekday.value);
-    const seedDate=dom.tplSeedDate.value||null;
-    const day=Number(dom.tplMonthDay.value||1);
-    const startDate=dom.tplStart.value||todayStr();
-    const notes=dom.tplNotes.value.trim();
-    if (!label || !amountCheck.ok){
-      dom.tplErr.style.display='block';
-      if (!label){
-        showToast('Please enter a template label.', 'error');
-      }
-      if (!amountCheck.ok){
-        dom.tplAmountErr.textContent = amountCheck.error;
-        dom.tplAmountErr.style.display = 'block';
-        showToast(amountCheck.error, 'error');
-      }
-      setTimeout(()=>dom.tplErr.style.display='none',1500);
-      dom.tplSave.disabled = false;
+function initCalendar(){
+  dom.calPrev.addEventListener('click', ()=>{
+    calCursor = new Date(calCursor.getFullYear(), calCursor.getMonth()-1, 1);
+    renderCalendar();
+  });
+  dom.calNext.addEventListener('click', ()=>{
+    calCursor = new Date(calCursor.getFullYear(), calCursor.getMonth()+1, 1);
+    renderCalendar();
+  });
+  dom.dayDetailBody.addEventListener('click', (e)=>{
+    const btn = e.target.closest('button[data-dd]'); if (!btn) return;
+    const act = btn.getAttribute('data-dd');
+    const id = btn.getAttribute('data-id');
+    const type = btn.getAttribute('data-type');
+    if (!id || !type) return;
+    if (act === 'del'){
+      confirmAction('Delete this scheduled item?', ()=>{
+        if (type === 'income') state.incomes = state.incomes.filter(x=>x.id!==id);
+        else state.expenses = state.expenses.filter(x=>x.id!==id);
+        saveState(); renderHome(); renderTransactions(); renderCalendar(); updateLastSaved();
+        showToast('Scheduled item deleted', 'success');
+      });
       return;
     }
-    dom.tplAmountErr.style.display = 'none';
-    const amount = amountCheck.value;
-    if (editingTplId){
-      const i=state.templates.findIndex(t=>t.id===editingTplId);
-      if (i>=0){ const old=state.templates[i];
-        state.templates[i]={...old, label, amount, freq, weekday, seedDate, day, startDate, notes, active:(old.active!==false), updatedAt:nowIso()};
+    if (act === 'paid'){
+      if (type === 'income'){
+        const it = state.incomes.find(x=>x.id===id); if(!it) return;
+        const posted = toISO(new Date());
+        state.incomes = state.incomes.filter(x=>x.id!==id);
+        state.incomes.push({id:uid(), date:posted, source:it.source||'Income', amount:Number(it.amount||0), scheduled:false, updatedAt:nowIso()});
+        saveState(); renderHome(); renderTransactions(); renderCalendar(); updateLastSaved(); showToast('Marked paid', 'success');
+      } else {
+        const it = state.expenses.find(x=>x.id===id); if(!it) return;
+        const next = prompt('Confirm amount for payment (you can adjust):', (Number(it.amount||0).toFixed(2)));
+        if (next===null) return;
+        const check = validateAmountInput(next);
+        if (!check.ok){ showToast(check.error, 'error'); return; }
+        const posted = toISO(new Date());
+        state.expenses = state.expenses.filter(x=>x.id!==id);
+        state.expenses.push({id:uid(), date:posted, category:it.category||'Expense', amount:check.value, notes:it.notes||'', scheduled:false, updatedAt:nowIso()});
+        saveState(); renderHome(); renderTransactions(); renderCalendar(); updateLastSaved(); showToast('Marked paid', 'success');
       }
-      showToast('Template updated', 'success');
-    } else {
-      state.templates.push({id:uid(), label, amount, freq, weekday, seedDate, day, startDate, notes, active:true, updatedAt:nowIso()});
-      showToast('Template added', 'success');
     }
-    saveState(); clearTplForm(); renderTemplates(); renderHome(); renderCalendar(); updateLastSaved();
-    dom.tplSave.disabled = false;
-  });
-  dom.tplList.addEventListener('click', (e)=>{
-    const btn=e.target.closest('button, input[type="checkbox"]'); if(!btn) return;
-    const id=btn.getAttribute('data-id'); const act=btn.getAttribute('data-tpl');
-    const i=state.templates.findIndex(t=>t.id===id); if(i<0) return;
-    if (act==='edit'){
-      const t=state.templates[i]; editingTplId=id;
-      dom.tplLabel.value=t.label||''; dom.tplAmount.value=Number(t.amount||0).toFixed(2);
-      dom.tplFreq.value=t.freq||'monthly'; dom.tplWeekday.value=String(t.weekday??0);
-      dom.tplSeedDate.value=t.seedDate||''; dom.tplMonthDay.value=String(t.day||1);
-      dom.tplStart.value=t.startDate||todayStr(); dom.tplNotes.value=t.notes||'';
-      showTplAnchors();
-    } else if (act==='del'){
-      confirmAction('Delete this template?', ()=>{
-        state.templates.splice(i,1);
-        state.expenses = state.expenses.filter(x=>x.templateId!==id || !x.scheduled);
-        saveState(); renderTemplates(); renderCalendar(); renderHome(); updateLastSaved(); showToast('Template deleted', 'success');
-      });
-    } else if (act==='toggle'){
-      state.templates[i].active = btn.checked;
-      saveState(); renderTemplates(); renderCalendar(); renderHome(); updateLastSaved(); showToast(btn.checked?'Template enabled':'Template disabled', 'success');
-    }
-  });
-}
-
-/* ====== Tools: Export/Import/CSV/Reset & Calcs ====== */
-function initTools(){
-  dom.exportBtn.addEventListener('click', ()=>{
-    const blob=new Blob([JSON.stringify(state,null,2)], {type:'application/json'});
-    const url=URL.createObjectURL(blob); const a=document.createElement('a');
-    a.href=url; a.download=`budget-export-v131-${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.json`;
-    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); showToast('Exported JSON', 'success');
-  });
-  dom.importFile.addEventListener('change', async (e)=>{
-    const file=e.target.files[0]; if(!file) return;
-    try{ const text=await file.text(); const obj=JSON.parse(text);
-      if(!obj || !Array.isArray(obj.incomes) || !Array.isArray(obj.expenses)) throw new Error('Invalid format');
-      state={
-        version: obj.version||'1.4.6',
-        settings: obj.settings||state.settings,
-        payPeriodOffset: obj.payPeriodOffset||0,
-        incomes: obj.incomes.map(x=>({...x, scheduled: !!x.scheduled, updatedAt:x.updatedAt||nowIso()})),
-        expenses: obj.expenses.map(x=>({...x, scheduled: !!x.scheduled, updatedAt:x.updatedAt||nowIso()})),
-        templates: Array.isArray(obj.templates)? obj.templates : (state.templates||[]),
-        lastImportBatch: null,
-        sync: obj.sync || state.sync
-      };
-      saveState(); renderHome(); renderTransactions(); renderCalendar(); renderTemplates(); updateLastSaved(); showToast('Imported data', 'success');
-    }catch(err){ alert('Import failed: '+(err.message||err)); } finally { e.target.value=''; }
-  });
-
-  // calculators
-  dom.whatIfNumber.addEventListener('input', ()=>{
-    const actualRange = {start: new Date('1970-01-01'), end: new Date()}; actualRange.end.setHours(0,0,0,0);
-    const {net:actualNet} = totalsForRange(actualRange); const whatIf = Number(dom.whatIfNumber.value||0);
-    dom.projectedBalance.textContent = formatCurrency(actualNet - whatIf);
-  });
-  dom.calcAmount.addEventListener('input', ()=>{
-    const actualRange = {start: new Date('1970-01-01'), end: new Date()}; actualRange.end.setHours(0,0,0,0);
-    const {net:actualNet} = totalsForRange(actualRange); const planned = parseAmount(dom.calcAmount.value);
-    dom.calcResult.textContent = formatCurrency(actualNet - (Number.isFinite(planned)?planned:0));
-  });
-
-  // Reset
-  dom.resetBtn.addEventListener('click', ()=>{
-    if (!confirm('Erase ALL incomes/expenses (keep settings & templates)?')) return;
-    const settings = state.settings, templates=state.templates, sync=state.sync;
-    state = { version:'1.4.6', settings, payPeriodOffset:0, incomes:[], expenses:[], templates, lastImportBatch:null, sync };
-    saveState();
-    renderHome(); renderTransactions(); renderCalendar(); renderTemplates();
-    updateLastSaved();
-    showToast('All transactions cleared', 'success');
-  });
-
-  // CSV
-  dom.csvFile.addEventListener('change', handleCsvFile);
-  dom.csvClose.addEventListener('click', closeCsvModal);
-  dom.csvImportBtn.addEventListener('click', importCsvMapped);
-  dom.amountMode.addEventListener('change', updateAmountModeUI);
-  dom.undoImportBtn.addEventListener('click', undoLastImport);
-}
-
-/* ====== CSV support (v1.4.6 DC fix) ====== */
-let _csvData = { headers:[], rows:[] };
-function handleCsvFile(e){
-  const file=e.target.files[0]; if(!file) return;
-  const reader=new FileReader();
-  reader.onload = () => {
-    const text=reader.result;
-    const parsed=parseCSV(text);
-    if (!parsed.headers.length){ alert('Could not read CSV headers.'); return; }
-    _csvData=parsed;
-    openCsvModal(parsed);
-  };
-  reader.readAsText(file);
-  e.target.value='';
-}
-function parseCSV(text){
-  const rows=[]; let cur='', inQ=false; let row=[];
-  for (let i=0;i<text.length;i++){
-    const c=text[i], n=text[i+1];
-    if (inQ){
-      if (c==='\"' && n==='\"'){ cur+='\"'; i++; }
-      else if (c==='\"'){ inQ=false; }
-      else cur+=c;
-    }else{
-      if (c==='\"'){ inQ=true; }
-      else if (c===',' ){ row.push(cur); cur=''; }
-      else if (c==='\n' || c==='\r'){ if (cur!=='' || row.length){ row.push(cur); rows.push(row); row=[]; cur=''; } }
-      else cur+=c;
-    }
-  }
-  if (cur!=='' || row.length){ row.push(cur); rows.push(row); }
-  const headers = (rows.shift()||[]).map(h=>h.trim());
-  return { headers, rows };
-}
-function openCsvModal(parsed){
-  const H=parsed.headers;
-  fillSelect(dom.mapDate, H, guessHeader(H, ['post date','date','effective date']));
-  fillSelect(dom.mapDesc, H, guessHeader(H, ['transaction description','description','memo','details']));
-  fillSelect(dom.mapAmount, H, guessHeader(H, ['amount','transaction amount']));
-  fillSelect(dom.mapDebit, H, guessHeader(H, ['debit']));
-  fillSelect(dom.mapCredit, H, guessHeader(H, ['credit']));
-  dom.amountMode.value = autoAmountMode(H);
-  updateAmountModeUI();
-  dom.csvHead.innerHTML = H.map(h=>`<th>${escapeHtml(h||'')}</th>`).join('');
-  const max= Math.min(20, parsed.rows.length);
-  dom.csvBody.innerHTML = parsed.rows.slice(0,max).map(r=>`<tr>${H.map((_,i)=>`<td>${escapeHtml(r[i]||'')}</td>`).join('')}</tr>`).join('');
-  dom.csvModal.style.display='flex';
-}
-function closeCsvModal(){ dom.csvModal.style.display='none'; _csvData={headers:[],rows:[]}; }
-function fillSelect(sel, headers, selected){
-  sel.innerHTML = headers.map(h=>`<option value="${escapeHtml(h)}">${escapeHtml(h)}</option>`).join('');
-  if (selected && headers.includes(selected)) sel.value=selected;
-}
-function guessHeader(headers, candidates){
-  const lower=headers.map(h=>h.toLowerCase());
-  for (const c of candidates){
-    const idx=lower.indexOf(c);
-    if (idx>=0) return headers[idx];
-    const foundIdx=lower.findIndex(h=>h.includes(c));
-    if (foundIdx>=0) return headers[foundIdx];
-  }
-  return headers[0]||'';
-}
-function autoAmountMode(H){
-  const lower=H.map(h=>h.toLowerCase());
-  if (lower.some(h=>h.includes('debit')) && lower.some(h=>h.includes('credit'))) return 'dc';
-  if (lower.some(h=>h.includes('amount'))) return 'signed';
-  return 'auto';
-}
-function updateAmountModeUI(){
-  const mode=dom.amountMode.value;
-  byId('amountRowSigned').style.display = (mode==='signed' || mode==='auto') ? '' : 'none';
-  byId('amountRowDC').style.display = (mode==='dc') ? '' : 'none';
-}
-function importCsvMapped(){
-  const H=_csvData.headers, rows=_csvData.rows;
-  if (!H.length){ alert('No CSV loaded'); return; }
-  const hDate = dom.mapDate.value, hDesc=dom.mapDesc.value;
-  const mode = (dom.amountMode.value==='auto') ? autoAmountMode(H) : dom.amountMode.value;
-  const idsImported=[];
-  let count=0;
-  for (const r of rows){
-    const map = Object.create(null);
-    H.forEach((h,i)=> map[h]=r[i]||'');
-    const desc = String(map[hDesc]||'').trim();
-    if (/beginning balance/i.test(desc)) continue;
-
-    let dstr = String(map[hDate]||'').trim();
-    if (!dstr) continue;
-    const dtry = new Date(dstr);
-    if (isNaN(dtry.getTime())) continue;
-    const iso = toISO(dtry);
-
-    let amt = 0;
-    if (mode==='dc'){
-      // NEW: treat Debit as absolute outflow; support negative debits
-      let debit = parseAmount(map[dom.mapDebit.value]);
-      let credit = parseAmount(map[dom.mapCredit.value]);
-      const d = Number.isFinite(debit) ? Math.abs(debit) : (dom.treatBlankAsZero.value==='yes'?0:NaN);
-      const c = Number.isFinite(credit) ? credit : (dom.treatBlankAsZero.value==='yes'?0:NaN);
-      if (!Number.isFinite(d) && !Number.isFinite(c)) continue;
-      const dd = Number.isFinite(d)?d:0, cc=Number.isFinite(c)?c:0;
-      amt = cc - dd; // positive=income, negative=expense
-    } else {
-      let a = parseAmount(map[dom.mapAmount.value]);
-      if (!Number.isFinite(a)) continue;
-      if (dom.invertSign.value==='yes') a = -a;
-      amt = a;
-    }
-
-    if (amt === 0) continue;
-    if (amt > 0){
-      const id=uid();
-      state.incomes.push({id, date:iso, source:desc||'Import', amount:amt, scheduled:false, updatedAt:nowIso()});
-      idsImported.push(id);
-    } else {
-      const id=uid();
-      state.expenses.push({id, date:iso, category:'Imported', amount:Math.abs(amt), notes:desc||'', scheduled:false, updatedAt:nowIso()});
-      idsImported.push(id);
-    }
-    count++;
-  }
-  state.lastImportBatch = { ids: idsImported, ts: Date.now() };
-  saveState(); renderHome(); renderTransactions(); renderCalendar(); closeCsvModal();
-  dom.undoImportBtn.disabled = idsImported.length===0;
-  updateLastSaved();
-  showToast(`Imported ${count} rows`, 'success');
-}
-function undoLastImport(){
-  const batch = state.lastImportBatch;
-  if (!batch || !Array.isArray(batch.ids) || !batch.ids.length) return;
-  const set=new Set(batch.ids);
-  const b1=state.incomes.length, b2=state.expenses.length;
-  state.incomes = state.incomes.filter(x=>!set.has(x.id));
-  state.expenses = state.expenses.filter(x=>!set.has(x.id));
-  const removed=(b1-state.incomes.length)+(b2-state.expenses.length);
-  state.lastImportBatch=null;
-  saveState(); renderHome(); renderTransactions(); renderCalendar(); updateLastSaved(); showToast(`Undid ${removed} imported rows`, 'success');
-}
-
-/* ====== Sync (updated for 1.4.6) ====== */
-async function deriveKey(pass, salt){
-  const enc=new TextEncoder();
-  const keyMaterial=await crypto.subtle.importKey('raw', enc.encode(pass), {name:'PBKDF2'}, false, ['deriveKey']);
-  return crypto.subtle.deriveKey({name:'PBKDF2', salt, iterations:120000, hash:'SHA-256'}, keyMaterial, {name:'AES-GCM', length:256}, true, ['encrypt','decrypt']);
-}
-async function encryptJSON(obj, pass, saltHex){
-  const enc=new TextEncoder();
-  const salt = saltHex ? Uint8Array.from(saltHex.match(/.{1,2}/g).map(b=>parseInt(b,16))) : crypto.getRandomValues(new Uint8Array(16));
-  const key=await deriveKey(pass, salt);
-  const iv=crypto.getRandomValues(new Uint8Array(12));
-  const data=enc.encode(JSON.stringify(obj));
-  const ct= new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, data));
-  function hex(buf){return Array.from(buf).map(b=>b.toString(16).padStart(2,'0')).join('')}
-  return { salt: hex(salt), iv: hex(iv), ct: btoa(String.fromCharCode(...ct)) };
-}
-async function decryptJSON(payload, pass){
-  const dec=new TextDecoder();
-  function fromHex(h){return new Uint8Array(h.match(/.{1,2}/g).map(b=>parseInt(b,16)))}
-  const salt=fromHex(payload.salt), iv=fromHex(payload.iv);
-  const key=await deriveKey(pass, salt);
-  const ctBytes=Uint8Array.from(atob(payload.ct), c=>c.charCodeAt(0));
-  const pt= await crypto.subtle.decrypt({name:'AES-GCM', iv}, key, ctBytes);
-  return JSON.parse(dec.decode(pt));
-}
-async function gistRequest(method, path, token, body){
-  const res = await fetch(`https://api.github.com${path}`, {
-    method, headers: { 'Authorization': `token ${token}`, 'Accept':'application/vnd.github+json' },
-    body: body? JSON.stringify(body): undefined
-  });
-  if (!res.ok) throw new Error(`${method} ${path} → ${res.status}`);
-  return res.json();
-}
-async function createGist(token){
-  const body = { description:'Budget App Sync (encrypted)', public:false, files: { 'budget.enc': { content: JSON.stringify({note:'init'}) } } };
-  const js = await gistRequest('POST','/gists', token, body);
-  return js.id;
-}
-async function pullSync(gistId, token){
-  const js = await gistRequest('GET', `/gists/${gistId}`, token);
-  const file = js.files && (js.files['budget.enc'] || Object.values(js.files)[0]);
-  if (!file || !file.content) throw new Error('No sync file found');
-  return JSON.parse(file.content);
-}
-async function pushSync(gistId, token, content){
-  const body={ files: { 'budget.enc': { content: JSON.stringify(content) } } };
-  await gistRequest('PATCH', `/gists/${gistId}`, token, body);
-}
-function initSync(){
-  dom.syncId.value = state.sync.gistId||'';
-  dom.syncToken.value = state.sync.token||'';
-  dom.syncPass.value = '';
-  dom.btnSyncNow.disabled = !(state.sync.gistId && state.sync.token);
-
-  byId('btnCreateGist').addEventListener('click', async ()=>{
-    try{
-      const token = dom.syncToken.value.trim();
-      if (!token){ alert('Enter your GitHub token with gist scope.'); return;}
-      const id = await createGist(token);
-      dom.syncId.value = id; showToast('Created sync', 'success');
-    }catch(e){ alert('Create failed: '+e.message); }
-  });
-  byId('btnConnect').addEventListener('click', ()=>{
-    const id=dom.syncId.value.trim(), token=dom.syncToken.value.trim(), pass=dom.syncPass.value.trim();
-    if (!id || !token || !pass){ alert('Enter Sync ID, Token, and Passphrase.'); return; }
-    if (!state.sync.keySalt) state.sync.keySalt = Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b=>b.toString(16).padStart(2,'0')).join('');
-    state.sync.gistId = id; state.sync.token = token; state.sync.passHint = `len:${pass.length}`; saveState();
-    dom.btnSyncNow.disabled=false; showToast('Connected to sync', 'success');
-  });
-  byId('btnSignOut').addEventListener('click', ()=>{
-    state.sync = { provider:null, gistId:null, token:null, keySalt:null, passHint:null, lastRev:0 };
-    saveState(); dom.syncId.value=''; dom.syncToken.value=''; dom.syncPass.value=''; dom.btnSyncNow.disabled=true; showToast('Signed out of sync', 'success');
-  });
-  byId('btnSyncNow').addEventListener('click', async ()=>{
-    const id=state.sync.gistId, token=state.sync.token, pass=dom.syncPass.value.trim();
-    if (!id || !token || !pass){ alert('Enter Sync ID/Token and Passphrase.'); return; }
-    try{
-      let remoteRaw; try{ remoteRaw = await pullSync(id, token); }catch(e){ remoteRaw=null; }
-      let remote = null; if (remoteRaw && remoteRaw.ct){ remote = await decryptJSON(remoteRaw, pass); } else if (remoteRaw && remoteRaw.note==='init'){ remote = null; }
-      let merged = JSON.parse(JSON.stringify(state));
-      if (remote){
-        function upsert(local, incoming, key='id'){
-          const map=new Map(local.map(i=>[i[key], i]));
-          for (const r of (incoming||[])){
-            const l=map.get(r[key]); const tL=new Date(l?.updatedAt||0).getTime(); const tR=new Date(r.updatedAt||0).getTime();
-            if (!l || tR>tL) map.set(r[key], r);
-          }
-          return Array.from(map.values());
-        }
-        merged.incomes = upsert(merged.incomes||[], remote.incomes||[]);
-        merged.expenses = upsert(merged.expenses||[], remote.expenses||[]);
-        merged.templates = upsert(merged.templates||[], remote.templates||[]);
-        const tL=new Date((state.syncUpdatedAt||state.versionDate||0)).getTime();
-        const tR=new Date((remote.syncUpdatedAt||remote.versionDate||0)).getTime();
-        if (tR>tL) merged.settings = remote.settings||merged.settings;
-      }
-      merged.version='1.4.6'; merged.syncUpdatedAt=nowIso();
-      const payload = await encryptJSON(merged, pass, state.sync.keySalt||null);
-      await pushSync(id, token, payload);
-      state = merged; saveState();
-      renderHome(); renderTransactions(); renderCalendar(); renderTemplates();
-      updateLastSaved();
-      showToast('Synced', 'success');
-    }catch(e){ alert('Sync failed: '+e.message); }
   });
 }
 
@@ -3030,8 +2293,9 @@ function init(){
   dom.appbarNav.style.display=''; // visible on home initially
   dom.payFreq.value = state.settings.payFreq||'biweekly';
   dom.seedPayday.value = toISO(state.settings.seedPayday||todayStr());
+  if (dom.buildStamp) dom.buildStamp.textContent = `Build ${BUILD_STAMP}`;
 
-  initTabs(); initHome(); initGoals(); initInsights(); initTxnModal(); initTransactions(); initCalendar(); initTemplates(); initTools(); initSync();
+  initTabs(); initHome(); initGoals(); initInsights(); initTxnModal(); initTransactions(); initCalendar();
   renderHome(); renderGoals(); renderInsights(); renderTransactions();
 }
 init();
