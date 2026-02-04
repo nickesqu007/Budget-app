@@ -389,7 +389,6 @@ Notes:
           <div class="progress-fill" id="totalGoalsBar" style="width:0%"></div>
         </div>
       </div>
-    </section>
 
     <div class="goals-grid" id="goalsGrid"></div>
   </section>
@@ -632,7 +631,13 @@ Notes:
           </div>
         </div>
       </div>
-    </section>
+    </div>
+
+    <div class="summary-row" id="payPeriodHeader" style="display:none">
+      <button class="nav-btn" id="prevPeriod" aria-label="Previous pay period">◀</button>
+      <div class="badge" id="periodLabel">—</div>
+      <button class="nav-btn" id="nextPeriod" aria-label="Next pay period">▶</button>
+    </div>
   </section>
 
   <!-- TRANSACTIONS -->
@@ -1371,6 +1376,10 @@ function renderHome(){
   const scheduledExp = state.expenses.filter(x=>x.scheduled && inRange(x.date, now, monthEnd)).reduce((s,x)=>s+Number(x.amount||0),0);
   if (dom.monthProjected) dom.monthProjected.textContent = formatCurrency(net + scheduledInc - scheduledExp);
 
+  const scheduledInc = state.incomes.filter(x=>x.scheduled && inRange(x.date, now, monthEnd)).reduce((s,x)=>s+Number(x.amount||0),0);
+  const scheduledExp = state.expenses.filter(x=>x.scheduled && inRange(x.date, now, monthEnd)).reduce((s,x)=>s+Number(x.amount||0),0);
+  if (dom.monthProjected) dom.monthProjected.textContent = formatCurrency(net + scheduledInc - scheduledExp);
+
   const sts = computeSafeToSpend();
   dom.safeToSpend.textContent = formatCurrency(sts.safe);
   dom.safePill.classList.toggle('negative', sts.safe < 0);
@@ -2047,6 +2056,133 @@ function initTxnModal(){
       if (dom.goalModalOverlay.style.display==='flex') closeGoalModal();
       if (dom.txnModalOverlay.style.display==='flex') closeTxnModal();
     }
+  });
+}
+function initGoals(){
+  dom.newGoalBtn.addEventListener('click', ()=>openGoalModal());
+  dom.goalModalClose.addEventListener('click', closeGoalModal);
+  dom.goalModalCancel.addEventListener('click', closeGoalModal);
+  dom.goalPriorityGroup.addEventListener('click', (e)=>{
+    const btn = e.target.closest('button[data-priority]'); if(!btn) return;
+    dom.goalPriorityGroup.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+  dom.goalModalCreate.addEventListener('click', ()=>{
+    const name = dom.goalName.value.trim();
+    const target = parseAmount(dom.goalTarget.value);
+    const current = parseAmount(dom.goalCurrent.value || '0');
+    if (!name){ alert('Goal name is required.'); return; }
+    if (!Number.isFinite(target) || target<=0){ alert('Target amount must be greater than 0.'); return; }
+    if (!Number.isFinite(current) || current<0){ alert('Current progress cannot be negative.'); return; }
+    const priority = dom.goalPriorityGroup.querySelector('.active')?.dataset.priority || 'medium';
+    const editingId = dom.goalModalCreate.dataset.editingId;
+    const goalData = {
+      id: editingId || uid(),
+      name,
+      type: dom.goalType.value,
+      targetAmount: target,
+      currentAmount: current,
+      targetDate: dom.goalDate.value,
+      monthlyContribution: parseAmount(dom.goalMonthly.value || '0'),
+      priority,
+      createdAt: editingId ? goals.find(g=>g.id===editingId)?.createdAt || nowIso() : nowIso()
+    };
+    if (editingId){
+      goals = goals.map(g=>g.id===editingId ? goalData : g);
+    } else {
+      goals.push(goalData);
+    }
+    saveGoals();
+    closeGoalModal();
+    renderGoals();
+    renderInsights();
+  });
+  dom.goalsGrid.addEventListener('click', (e)=>{
+    const action = e.target.closest('[data-goal-action]'); if(!action) return;
+    const id = action.getAttribute('data-id');
+    const goal = goals.find(g=>g.id===id);
+    if (!goal) return;
+    const act = action.getAttribute('data-goal-action');
+    if (act==='delete'){
+      if (!confirm('Delete this goal?')) return;
+      goals = goals.filter(g=>g.id!==id);
+      saveGoals();
+      renderGoals();
+      renderInsights();
+    }
+    if (act==='edit'){
+      openGoalModal(goal);
+    }
+    if (act==='log'){
+      const input = prompt('Log contribution amount:', '0');
+      if (input===null) return;
+      const amt = parseAmount(input);
+      if (!Number.isFinite(amt) || amt<=0){ alert('Enter a valid amount.'); return; }
+      goal.currentAmount = Number(goal.currentAmount||0) + amt;
+      saveGoals();
+      renderGoals();
+      renderInsights();
+    }
+  });
+}
+function initInsights(){
+  dom.insightsTabs.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const tab = btn.getAttribute('data-insights-tab');
+      setInsightsTab(tab);
+    });
+  });
+  dom.whatIfExtra.addEventListener('input', updateWhatIf);
+  dom.whatIfHorizon.addEventListener('input', updateWhatIf);
+  setInsightsTab('weekly');
+}
+function initTxnModal(){
+  dom.txnModalClose.addEventListener('click', closeTxnModal);
+  dom.txnModalCancel.addEventListener('click', closeTxnModal);
+  dom.txnTypeSwitch.addEventListener('click', (e)=>{
+    const btn = e.target.closest('button[data-txn-type]'); if(!btn) return;
+    dom.txnTypeSwitch.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const type = btn.dataset.txnType;
+    dom.txnCategoryWrap.style.display = type==='expense' ? '' : 'none';
+  });
+  dom.txnModalAdd.addEventListener('click', ()=>{
+    const activeBtn = dom.txnTypeSwitch.querySelector('button.active');
+    const type = activeBtn?.dataset.txnType || 'expense';
+    const amt = parseAmount(dom.txnAmount.value);
+    if (!Number.isFinite(amt) || amt<=0){ alert('Enter a valid amount.'); return; }
+    const desc = dom.txnDesc.value.trim();
+    const date = dom.txnDate.value || todayStr();
+    const scheduled = dom.txnRecurring.checked;
+    if (type==='income'){
+      state.incomes.push({
+        id: uid(),
+        date,
+        source: desc || 'Income',
+        amount: amt,
+        scheduled,
+        updatedAt: nowIso()
+      });
+      saveState();
+      renderHome(); renderTransactions();
+      toast('Income added');
+    } else {
+      const category = dom.txnCategory.value || 'Other';
+      state.expenses.push({
+        id: uid(),
+        date,
+        category,
+        amount: amt,
+        notes: desc,
+        scheduled,
+        templateId: null,
+        updatedAt: nowIso()
+      });
+      saveState();
+      renderHome(); renderTransactions();
+      toast('Expense added');
+    }
+    closeTxnModal();
   });
 }
 function initTransactions(){
